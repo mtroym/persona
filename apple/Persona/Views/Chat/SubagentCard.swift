@@ -67,6 +67,8 @@ nonisolated enum SubagentRecent {
 /// pushes what it writes), instead of what the card knew when it opened.
 struct SubagentRecentSteps: View {
     @Environment(AppModel.self) private var model
+    /// Drawn for Full Page (#1609): what the store has, without following or fetching.
+    @Environment(\.fullPageExport) private var exporting
     var key: SessionKey
     @State private var owner = UUID()
 
@@ -82,9 +84,9 @@ struct SubagentRecentSteps: View {
             }
         }
         .animation(Theme.Motion.state, value: calls.map(\.id))
-        .task(id: fold?.id) { if let fold { try? await model.unfold(key, fold) } }
-        .onAppear { model.subscribe(key, by: owner) }
-        .onDisappear { model.unsubscribe(key, by: owner) }
+        .task(id: fold?.id) { if let fold, !exporting { try? await model.unfold(key, fold) } }
+        .onAppear { if !exporting { model.subscribe(key, by: owner) } }
+        .onDisappear { if !exporting { model.unsubscribe(key, by: owner) } }
         .accessibilityIdentifier("chat.subagent-steps")
     }
 }

@@ -68,7 +68,8 @@ func (h *Manager) marketAdd(ctx context.Context, specText, token string) (Market
 	return view, nil
 }
 
-// marketToken is the token market id was registered with (empty when it has none).
+// marketTokenFor is the token market id was registered with, for a move to target: an error when it has none or
+// target may not get it.
 func (h *Manager) marketTokenFor(id string, target extension.MarketSpec) (string, error) {
 	ms := h.marketsState()
 	ms.mu.Lock()

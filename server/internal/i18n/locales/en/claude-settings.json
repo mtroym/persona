@@ -1,5 +1,5 @@
 {
   "effort_title": "Thinking effort",
-  "effort_detail": "Higher thinks more carefully and takes longer. auto uses the model default. For max, use the session effort control or /effort max.",
-  "effort_max_ignored": "Saved max is not applied: Claude Code ignores it in settings.json and uses the model default. Use the session effort control or /effort max instead."
+  "effort_detail": "Higher thinks more carefully and takes longer. auto uses the model default. To use max for every new Agent, set it in Model configuration › Agents › Reasoning effort. For a single session, use the session effort control or /effort max.",
+  "effort_max_ignored": "Saved max is not applied: Claude Code ignores it in settings.json and uses the model default. To use max for every new Agent, set it in Model configuration › Agents › Reasoning effort. For a single session, use the session effort control or /effort max."
 }

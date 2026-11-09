@@ -247,16 +247,39 @@ func ParseContent(msgType, content string, mentions []Mention) Content {
 	default:
 		c.Text = "[" + msgType + " 消息]"
 	}
-	for _, m := range mentions {
-		// An empty key is not a placeholder: ReplaceAll("", …) would insert between every rune.
-		if m.Key == "" {
-			continue
-		}
-		c.Text = strings.ReplaceAll(c.Text, m.Key, "@"+m.Name)
-	}
-	c.Text = strings.TrimSpace(c.Text)
+	c.Text = strings.TrimSpace(nameMentionKeys(c.Text, mentions))
 	return c
 }
+
+// nameMentionKeys puts "@<name>" in place of each mention's key in text, in one pass and a key only as a whole:
+// "@_user_1" is not the start of "@_user_10" (the key is not followed by another digit). A mention without a key is
+// no placeholder, and one without a name leaves its key as it stands.
+func nameMentionKeys(text string, mentions []Mention) string {
+	var b strings.Builder
+	done := 0 // text before this is in b
+	for i := 0; i < len(text); i++ {
+		for _, m := range mentions {
+			if m.Key == "" || m.Name == "" || !strings.HasPrefix(text[i:], m.Key) {
+				continue
+			}
+			if end := i + len(m.Key); end < len(text) && isDigit(text[end]) {
+				continue
+			}
+			b.WriteString(text[done:i])
+			b.WriteString("@" + m.Name)
+			done = i + len(m.Key)
+			i = done - 1
+			break
+		}
+	}
+	if done == 0 {
+		return text
+	}
+	b.WriteString(text[done:])
+	return b.String()
+}
+
+func isDigit(c byte) bool { return '0' <= c && c <= '9' }
 
 // parsePost flattens rich text: paragraphs become lines, links Markdown links, code blocks fenced; images are media.
 // A received post is {"title","content":[[…]]}; one read back may be keyed by language ({"zh_cn":{…}}).
@@ -348,10 +371,10 @@ func parsePost(content string, mentions []Mention) Content {
 }
 
 // mentionName resolves an at node's user_id through the event's mentions; the id may be an open_id,
-// a user_id or a union_id depending on the tenant's id type.
+// a user_id or a union_id depending on the tenant's id type, or the mention's own key ("@_user_1").
 func mentionName(id string, mentions []Mention) string {
 	for _, m := range mentions {
-		if m.ID.OpenID == id || m.ID.UserID == id || m.ID.UnionID == id {
+		if m.ID.OpenID == id || m.ID.UserID == id || m.ID.UnionID == id || m.Key != "" && m.Key == id {
 			return m.Name
 		}
 	}

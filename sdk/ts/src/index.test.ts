@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { connect, decodeState, encodeState, ExtError, isWidget, open, type Program } from "./index.ts";
+import { connect, decodeState, encodeState, ExtError, image, isWidget, open, values, type Program } from "./index.ts";
 
 // A hub's end of connect(): send a request, wait for its answer.
 function harness(prog: Program) {
@@ -385,4 +385,60 @@ test("lines and items (UI version 5) are answered as they are, not drawn again",
   expect(await action("viewed")).toEqual({ items: [] });
   expect(await action("replace")).toEqual({ items });
   expect(renders).toBe(0);
+});
+
+test("image() reads the type from the bytes and holds max_age", () => {
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
+  const gif = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+  const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
+  expect(image("", png).mime).toBe("image/png");
+  expect(image("", jpg).mime).toBe("image/jpeg");
+  expect(image("", gif).mime).toBe("image/gif");
+  expect(image("", webp).mime).toBe("image/webp");
+  expect(image("image/custom", png).mime).toBe("image/custom");
+  expect(image("", new Uint8Array([1, 2, 3])).mime).toBe("application/octet-stream");
+  expect(image("", png, 999999).max_age).toBe(86400);
+  expect(image("", png, -5).max_age).toBe(0);
+  expect(image("", png).data).toBe(btoa(String.fromCharCode(...png)));
+});
+
+test("value readers read UI version 6's formats", () => {
+  const req: any = { tz: "Asia/Shanghai", values: {
+    on: "true", off: "false", level: " 22.5 ", day: "2026-11-06", at: "07:30",
+    until: "2026-11-06T22:00", rooms: '["kitchen","bedroom"]', bad: "x", notjson: "a,b",
+  }};
+  expect(values.bool(req, "on")).toBe(true);
+  expect(values.bool(req, "off")).toBe(false);
+  expect(values.bool(req, "none")).toBe(false);
+  expect(values.number(req, "level")).toBe(22.5);
+  expect(() => values.number(req, "bad")).toThrow();
+  expect(() => values.number(req, "none")).toThrow();
+  expect(values.date(req, "day")).toEqual({ year: 2026, month: 11, day: 6 });
+  expect(() => values.date(req, "bad")).toThrow();
+  expect(values.time(req, "at")).toEqual({ hour: 7, minute: 30 });
+  expect(() => values.time(req, "bad")).toThrow();
+  expect(values.datetime(req, "until")).toEqual({ year: 2026, month: 11, day: 6, hour: 22, minute: 0 });
+  expect(() => values.datetime(req, "bad")).toThrow();
+  expect(values.multi(req, "rooms")).toEqual(["kitchen", "bedroom"]);
+  expect(values.multi(req, "notjson")).toEqual([]);
+  expect(values.multi(req, "none")).toEqual([]);
+});
+
+test("ui.image serves a page's pictures and refuses what has none", async () => {
+  const { call } = harness({
+    id: "example",
+    version: "1.0.0",
+    ui: {
+      cam: {
+        render: () => ({ sections: [] }),
+        image: () => ({ mime: "image/png", data: "AA==", max_age: 10 }),
+      },
+      plain: { render: () => ({ sections: [] }) },
+    },
+  });
+  await call("initialize", { protocol: 1, hub: { build: 1 }, extension: { id: "example", version: "1.0.0" } });
+  expect((await call("ui.image", { contribution: "cam", ref: "front", width: 640 })).result).toEqual({ mime: "image/png", data: "AA==", max_age: 10 });
+  expect((await call("ui.image", { contribution: "plain", ref: "x" })).error.code).toBe("unknown_method");
+  expect((await call("ui.image", { contribution: "nope", ref: "x" })).error.code).toBe("no_contribution");
 });

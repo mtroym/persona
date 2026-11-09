@@ -289,3 +289,102 @@ func TestSplitTrivialInputs(t *testing.T) {
 		}
 	}
 }
+
+func TestSplitKeepsGraphemeClusters(t *testing.T) {
+	// A hard cut with no whitespace or punctuation in reach must land between user-perceived characters:
+	// never inside a ZWJ sequence, a flag, a skin-tone or keycap sequence, or a letter with its marks.
+	family := "\U0001F468\u200D\U0001F469\u200D\U0001F467\u200D\U0001F466"
+	flag := "\U0001F1EF\U0001F1F5"
+	thumbs := "\U0001F44D\U0001F3FD"
+	keycap := "1\uFE0F\u20E3"
+	accent := "e\u0301"
+	vowelSign := "\u0915\u093F" // a spacing vowel sign joins the consonant before it
+	halfwidth := "\uFF76\uFF9E" // a halfwidth voiced sound mark joins the kana before it
+	tagFlag := "\U0001F3F4\U000E0067\U000E0062\U000E0073\U000E0063\U000E0074\U000E007F"
+	repeat := func(units ...string) []string {
+		var out []string
+		for size := 0; size < 520; {
+			for _, u := range units {
+				out = append(out, u)
+				size += len([]rune(u))
+			}
+		}
+		return out
+	}
+	cases := []struct {
+		name     string
+		clusters []string
+		fenced   bool
+	}{
+		{"zwj family", repeat(family), false},
+		{"flags", repeat(flag), false},
+		{"skin tone", repeat(thumbs), false},
+		{"keycap", repeat(keycap), false},
+		{"combining accent", repeat(accent), false},
+		{"spacing vowel sign", repeat(vowelSign), false},
+		{"halfwidth sound mark", repeat(halfwidth), false},
+		{"tag sequence", repeat(tagFlag), false},
+		{"mixed", repeat(family, flag, thumbs, keycap, accent, vowelSign, halfwidth, tagFlag, "x"), false},
+		{"mixed in a code block", repeat(family, flag, keycap, accent, "x"), true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) { assertClusterSeams(t, tc.clusters, tc.fenced) })
+	}
+	// One cluster longer than a piece still hard-cuts at the limit instead of shrinking every piece to one rune.
+	long := "e" + strings.Repeat("\u0301", 300)
+	for n := 200; n <= 212; n++ {
+		parts := Split(long, n)
+		if len(parts) != 2 || strings.Join(parts, "") != long {
+			t.Fatalf("n=%d: over-long cluster split into %d pieces", n, len(parts))
+		}
+		for i, p := range parts {
+			if l := len([]rune(p)); l > n {
+				t.Fatalf("n=%d: piece %d has %d runes", n, i, l)
+			}
+		}
+	}
+}
+
+// assertClusterSeams splits the clusters' concatenation (inside a code block when fenced) at n = 200..212 and
+// checks every piece fits, the pieces reassemble the source, and every seam falls between two clusters.
+func assertClusterSeams(t *testing.T, clusters []string, fenced bool) {
+	body := strings.Join(clusters, "")
+	text := body
+	if fenced {
+		text = "```\n" + body + "\n```"
+	}
+	boundary := map[int]bool{} // rune offsets in body between two clusters
+	for off, i := 0, 0; i < len(clusters); i++ {
+		off += len([]rune(clusters[i]))
+		boundary[off] = true
+	}
+	for n := 200; n <= 212; n++ {
+		parts := Split(text, n)
+		if len(parts) < 2 {
+			t.Fatalf("n=%d: not split: %d piece(s)", n, len(parts))
+		}
+		joined, off := "", 0
+		for i, p := range parts {
+			if l := len([]rune(p)); l > n {
+				t.Fatalf("n=%d: piece %d has %d runes", n, i, l)
+			}
+			if fenced { // drop each piece's opening or reopened fence and its closing fence
+				lines := strings.Split(p, "\n")
+				if len(lines) < 2 || !bareFence(lines[0]) || !bareFence(lines[len(lines)-1]) {
+					t.Fatalf("n=%d: piece %d is not one fenced block: %q", n, i, p)
+				}
+				p = strings.Join(lines[1:len(lines)-1], "\n")
+			}
+			joined += p
+			off += len([]rune(p))
+			if i < len(parts)-1 && off > 0 && !boundary[off] {
+				r := []rune(body)
+				t.Fatalf("n=%d: piece %d ends inside a cluster at rune %d: ...%q | %q...",
+					n, i, off, string(r[max(off-4, 0):off]), string(r[off:min(off+4, len(r))]))
+			}
+		}
+		if joined != body {
+			t.Fatalf("n=%d: pieces do not reassemble the source", n)
+		}
+	}
+}

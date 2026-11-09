@@ -59,6 +59,10 @@ func shortHome(t *testing.T) string {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(home) })
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("PERSONA_HOME", "")
+	t.Setenv("JARVIS_HOME", "")
 	return home
 }
 

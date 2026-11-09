@@ -25,6 +25,8 @@ class ExtensionWireTest {
         "View" to ExtensionView.serializer(),
         "ActionResult" to ExtensionActionResult.serializer(),
         "UIParams" to ExtensionUIParams.serializer(),
+        "UIImage" to ExtensionUIImage.serializer(),
+        "UIImageParams" to ExtensionUIImageParams.serializer(),
         "UIPlaces" to ExtensionUIPlaces.serializer(),
         "InitializeParams" to ExtensionInitializeParams.serializer(),
         "InitializeResult" to ExtensionInitializeResult.serializer(),

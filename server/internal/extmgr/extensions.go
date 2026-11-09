@@ -641,6 +641,9 @@ func (ps *extensions) apply(ctx context.Context, id string) {
 		ps.h.extTokens.revoke(id, why)
 	}
 	ps.forgetEgress(id) // the same for its proxy credential (extension_sandbox.go)
+	if ps.h != nil {
+		ps.h.forgetImages(id) // and the pictures it served (extension_images.go)
+	}
 	if old != nil {
 		ps.removeAgentSources(old)
 		for _, c := range old.conns {

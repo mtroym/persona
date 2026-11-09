@@ -28,6 +28,9 @@ nonisolated enum ChatImageLoader {
     static func image(_ p: ImagePayload, side: CGFloat?) async -> UIImage? {
         let k = key(p, side)
         if let img = images.object(forKey: k) { return img }
+        // A Full Page strip waits for this (#1609).
+        let fullPageLoad = FullPageLoads.shared.begin()
+        defer { FullPageLoads.shared.end(fullPageLoad) }
         guard let data = await data(p) else { return nil }
         let img: UIImage? = await Task.detached(priority: .userInitiated) {
             guard let full = UIImage(data: data) else { return nil }

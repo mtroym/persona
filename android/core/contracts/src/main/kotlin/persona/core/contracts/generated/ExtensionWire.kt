@@ -1277,6 +1277,31 @@ data class ExtensionUIParams(
     val item: ExtensionUIInboxItem? = null,
 )
 
+/**
+ * ui.image's parameters (UI version 6): the hub asks the extension for a picture it drew as a ref, for the ui
+ * contribution that drew it. width is the pixel width the app wants (320, 640, 1280 or 2048; 0 when it says nothing);
+ * the extension may ignore it.
+ */
+@Serializable
+data class ExtensionUIImageParams(
+    val contribution: String = "",
+    val ref: String = "",
+    val width: Int? = null,
+    val placement: String? = null,
+)
+
+/**
+ * What ui.image answers: the picture's bytes in base64 (png, jpeg, webp or gif, at most 4 MB decoded and 8192 pixels
+ * a side; the hub reads the type from the bytes, not from mime) and how long the hub may keep it (seconds, 60 when
+ * absent; a camera 5 to 10, a still 86400).
+ */
+@Serializable
+data class ExtensionUIImage(
+    val mime: String = "",
+    val data: String = "",
+    @SerialName("max_age") val maxAge: Int? = null,
+)
+
 @Serializable
 data class ExtensionUIMachine(
     val id: String = "",

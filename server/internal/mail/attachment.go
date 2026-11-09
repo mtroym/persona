@@ -16,6 +16,7 @@ import (
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
+	gomessage "github.com/emersion/go-message"
 	gomail "github.com/emersion/go-message/mail"
 )
 
@@ -27,6 +28,23 @@ func attachmentMetadata(h *gomail.AttachmentHeader, body io.Reader, index int, d
 	fmt.Fprintf(sum, "%d\x00%s\x00%s\x00", index, name, ct)
 	n, err := io.Copy(io.MultiWriter(sum, dst), body)
 	return Attachment{ID: strconv.Itoa(index) + "-" + hex.EncodeToString(sum.Sum(nil)), Filename: name, Mime: ct, Size: n}, err
+}
+
+// nextPart is r.NextPart past the parts go-message can only partly decode. A part in an unknown charset comes back
+// with its raw body and is used as is; a part in an unknown transfer encoding comes back without a header and is
+// skipped. The message list and the attachment download both read parts through it, so they count attachment
+// ordinals the same way. io.EOF and every other error are returned.
+func nextPart(r *gomail.Reader) (*gomail.Part, error) {
+	for {
+		part, err := r.NextPart()
+		switch {
+		case gomessage.IsUnknownEncoding(err):
+			continue
+		case gomessage.IsUnknownCharset(err) && part != nil:
+			return part, nil
+		}
+		return part, err
+	}
 }
 
 func (s *Service) attachment(ctx context.Context, accountID string, uid uint32, mailbox, id string) (*os.File, Attachment, error) {
@@ -73,7 +91,7 @@ func (s *Service) attachment(ctx context.Context, accountID string, uid uint32, 
 				}
 				count := 0
 				for {
-					part, err := reader.NextPart()
+					part, err := nextPart(reader)
 					if err == io.EOF {
 						break
 					}

@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -175,8 +174,6 @@ func (s *Service) superviseTodo(ctx context.Context, id, supervisor string, done
 		s.logf("task %s: supervision: %v", id, err)
 	}
 }
-
-var errNotSupervised = errors.New("not a supervised task")
 
 // updateSupervision changes todo id's ledger (a new one when it has none) with change, which says whether it changed
 // anything; the ledger as it is then. Writes are one at a time.

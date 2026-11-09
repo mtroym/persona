@@ -1,6 +1,9 @@
 package channel
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 // Split cuts long Markdown into pieces of at most n runes (no limit when n <= 0), at line breaks where it can
 // and never inside a code block without closing and reopening it. Whitespace-only input is returned as one piece.
@@ -150,7 +153,8 @@ func fenceLine(line string) (marker, head string, bare bool) {
 // safeCut chooses how many leading runes of an over-long line the current piece takes (1 <= k <= max),
 // backing off the fixed limit to whitespace then punctuation (CJK included). In prose it keeps inline
 // spans (backtick code, [...] links, <...> tags, &...; entities) whole when they fit a fresh piece
-// (room), otherwise hard-cuts at the fixed limit. The returned int is the opener length still open.
+// (room), otherwise hard-cuts at the fixed limit. Either way the cut then backs off to a grapheme
+// cluster boundary. The returned int is the opener length still open.
 func safeCut(line []rune, max, room int, spans bool, danglingN, prefixRun int) (k, nextDangling int) {
 	k, foundSpace := max, false
 	for i := max; i >= 1; i-- { // prefer a boundary right after whitespace
@@ -168,7 +172,7 @@ func safeCut(line []rune, max, room int, spans bool, danglingN, prefixRun int) (
 		}
 	}
 	if !spans {
-		return k, 0
+		return graphemeSafe(line, k), 0
 	}
 	closed, open, _ := scanSpans(line, max, danglingN, prefixRun)
 	for _, sp := range closed { // a boundary inside a complete span must not cut it
@@ -189,11 +193,60 @@ func safeCut(line []rune, max, room int, spans bool, danglingN, prefixRun int) (
 			break
 		}
 	}
+	k = graphemeSafe(line, k) // span openers are never extenders: a span moved to the next piece stays whole
 	// backtick state is replayed at the real cut (not the limit), so a closer the cut leaves behind
 	// cannot be consumed early.
 	_, _, nextDangling = scanSpans(line, k, danglingN, prefixRun)
 	return k, nextDangling
 }
+
+// graphemeSafe moves the cut k left to the nearest grapheme cluster boundary, so a piece never ends inside
+// a ZWJ sequence, a flag, a skin-tone or keycap sequence, or a letter with its marks (a close approximation
+// of UAX #29 that needs no tables). When no cut in 1..k is a boundary, one cluster outgrows the whole piece
+// and k stays a hard cut, so every piece still makes progress within the limit.
+func graphemeSafe(line []rune, k int) int {
+	for j := k; j >= 1; j-- {
+		if clusterBoundary(line, j) {
+			return j
+		}
+	}
+	return k
+}
+
+// clusterBoundary reports whether a cut between line[j-1] and line[j] falls between two grapheme clusters.
+func clusterBoundary(line []rune, j int) bool {
+	if j <= 0 || j >= len(line) {
+		return true
+	}
+	if graphemeExtender(line[j]) || line[j-1] == '\u200D' { // ZWJ glues the pictograph after it
+		return false
+	}
+	if !regionalIndicator(line[j]) {
+		return true
+	}
+	before := 0 // flags pair regional indicators from the start of their run
+	for i := j - 1; i >= 0 && regionalIndicator(line[i]); i-- {
+		before++
+	}
+	return before%2 == 0
+}
+
+// graphemeExtender reports runes that never start a grapheme cluster: combining, enclosing and spacing
+// marks (variation selectors and the keycap U+20E3 among them), ZWJ and ZWNJ, emoji skin tones, emoji tag
+// characters and the halfwidth kana sound marks.
+func graphemeExtender(r rune) bool {
+	switch {
+	case r < 0x0300:
+		return false // fast path: nothing below the combining diacritics extends a cluster
+	case r == '\u200C', r == '\u200D', r == '\uFF9E', r == '\uFF9F':
+		return true
+	case r >= 0x1F3FB && r <= 0x1F3FF, r >= 0xE0020 && r <= 0xE007F:
+		return true
+	}
+	return unicode.Is(unicode.M, r)
+}
+
+func regionalIndicator(r rune) bool { return r >= 0x1F1E6 && r <= 0x1F1FF }
 
 type spanRange struct {
 	start  int

@@ -158,7 +158,7 @@ fun ExtensionPage(
         return
     }
     val res = LocalResources.current
-    val model = remember(extensions, extensionId, res) { ExtensionModel(extensions, extensionId, res) }
+    val model = remember(extensions, extensionId, res, manager) { ExtensionModel(extensions, extensionId, res, manager) }
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
     val feedback = LocalAppFeedback.current
@@ -390,7 +390,7 @@ private fun LazyListScope.upgrades(
     val upgrade = extension.upgrade
     val note = if (upgrade == null) extension.upgradeNote?.let { n -> ExtensionText.upgradeNote(res, n)?.let { it to n } } else null
     val count = 1 + (if (upgrade != null) 1 else 0) + (if (note != null) 1 else 0)
-    // Switched off, the extension is not upgraded: its switch shows off and waits (the hub keeps it) until it is on.
+    // Paused (switched off, its market removed…), the extension is not upgraded: its switch shows off and waits (the hub keeps it).
     val paused = extension.autoUpgradePaused != null
     item("upgrade-title") { JSectionHeader(stringResource(R.string.settings_ext_upgrade_title)) }
     item("upgrade-auto") {
@@ -421,7 +421,7 @@ private fun LazyListScope.upgrades(
             }
         }
     }
-    item("upgrade-note-footer") { Note(stringResource(if (paused) R.string.settings_ext_upgrade_paused_footer else R.string.settings_ext_upgrade_footer)) }
+    item("upgrade-note-footer") { Note(stringResource(ExtensionText.upgradeFooter(extension))) }
 }
 
 /** Removing an extension a market installed, at the end of its page. */

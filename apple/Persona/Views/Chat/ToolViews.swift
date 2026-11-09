@@ -1164,6 +1164,8 @@ extension EnvironmentValues {
 /// then fetches the steps, which take its place.
 struct FoldedWorkRow: View {
     @Environment(\.openFold) private var openFold
+    /// Drawn for Full Page (#1609): the row as it is, without fetching the steps into the chat.
+    @Environment(\.fullPageExport) private var exporting
     var fold: Item
     @State private var failed: String?
     @State private var attempt = 0
@@ -1192,7 +1194,7 @@ struct FoldedWorkRow: View {
         .foregroundStyle(.secondary)
         .scaledFrame(minHeight: Theme.Size.wellXS)
         .task(id: attempt) {
-            guard let openFold else { return }
+            guard let openFold, !exporting else { return }
             do {
                 try await openFold(fold)
             } catch {

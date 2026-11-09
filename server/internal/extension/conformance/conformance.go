@@ -205,6 +205,43 @@ func Check(t T, m *extension.Manifest, run Run, init extension.InitializeParams)
 			if dropped, err := extension.Fit(&v, slot, extension.UIVersion); err != nil || len(dropped) > 0 {
 				t.Fatalf("ui %s: the apps cannot draw it at %s: %v (unknown items: %v)", u.ID, u.Placement, err, dropped)
 			}
+			// UI version 6: each picture it drew by ref is served (ui.image), held to what the hub's image proxy takes
+			// (wire.CheckImage); an error in words is allowed (a camera the test cannot reach), not knowing ui.image is not.
+			for k, ref := range wire.ImageRefs(&v) {
+				if k == imageRefsChecked {
+					break
+				}
+				var img wire.UIImage
+				err := hub.Call(ctx, "ui.image", wire.UIImageParams{Contribution: u.ID, Ref: ref, Width: 640, Placement: u.Placement}, &img)
+				switch c := code(err); {
+				case c == extension.CodeUnknownMethod || c == extension.CodeNoContribution:
+					t.Fatalf("ui %s: it draws ref %q, and ui.image answered %v", u.ID, ref, err)
+				case err != nil:
+					continue
+				}
+				if _, err := wire.CheckImage(&img); err != nil {
+					t.Fatalf("ui %s: ref %q: %v", u.ID, ref, err)
+				}
+			}
+			// and drawn for an app of the version before, it is still a view the hub can fit: the extension does not
+			// count on every app drawing this hub's version
+			older := params
+			older.UIVersion = extension.UIVersion - 1
+			var oldRaw json.RawMessage
+			err = hub.Call(ctx, "ui.render", older, &oldRaw)
+			switch c := code(err); {
+			case c == extension.CodeUnknownMethod || c == extension.CodeNoContribution:
+				t.Fatalf("ui %s: ui.render for UI version %d answered %v", u.ID, older.UIVersion, err)
+			case err != nil:
+				continue
+			}
+			var old extension.View
+			if err := json.Unmarshal(oldRaw, &old); err != nil {
+				t.Fatalf("ui %s (UI version %d): %v", u.ID, older.UIVersion, err)
+			}
+			if _, err := extension.Fit(&old, slot, older.UIVersion); err != nil {
+				t.Fatalf("ui %s: drawn for UI version %d, the apps cannot draw it: %v", u.ID, older.UIVersion, err)
+			}
 		}
 	}
 
@@ -236,6 +273,9 @@ func Check(t T, m *extension.Manifest, run Run, init extension.InitializeParams)
 	}
 	return res
 }
+
+// imageRefsChecked is how many of a view's refs the conformance tests ask ui.image for.
+const imageRefsChecked = 20
 
 // snakeKeys checks every object key in raw is snake_case.
 func snakeKeys(t T, at string, raw json.RawMessage, depth int) {

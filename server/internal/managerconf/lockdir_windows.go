@@ -7,8 +7,8 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// lockDir locks a file inside the directory: Windows cannot lock a directory handle.
-func lockDir(path string) (func(), error) {
+// LockDir locks a file inside the directory: Windows cannot lock a directory handle.
+func LockDir(path string) (func(), error) {
 	f, err := os.OpenFile(filepath.Join(path, ".lock"), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, err

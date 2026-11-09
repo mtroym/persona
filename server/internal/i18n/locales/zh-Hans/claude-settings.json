@@ -1,5 +1,5 @@
 {
   "effort_title": "思考强度",
-  "effort_detail": "越高想得越仔细，也越慢；auto 使用模型默认档。max 请在会话的思考强度中选择，或使用 /effort max。",
-  "effort_max_ignored": "已保存的 max 未生效：Claude Code 会忽略 settings.json 中的 max，使用模型默认档。请在会话的思考强度中选择 max，或使用 /effort max。"
+  "effort_detail": "越高想得越仔细，也越慢；auto 使用模型默认档。要让每个新 Agent 默认使用 max，请在「模型配置 › Agents › 思考强度」中设置。仅对一个会话使用 max 时，请在会话的思考强度中选择，或使用 /effort max。",
+  "effort_max_ignored": "已保存的 max 未生效：Claude Code 会忽略 settings.json 中的 max，使用模型默认档。要让每个新 Agent 默认使用 max，请在「模型配置 › Agents › 思考强度」中设置。仅对一个会话使用 max 时，请在会话的思考强度中选择，或使用 /effort max。"
 }

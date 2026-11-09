@@ -159,6 +159,9 @@ type Manager struct {
 	// read. Tests put another in its place.
 	ruleStore userRuleStore
 	userRules userRules
+
+	// images are the pictures extensions serve through the hub (extension_images.go).
+	images imageProxy
 }
 
 // New is the manager of opts; nothing runs until Run.

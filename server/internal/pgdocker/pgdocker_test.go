@@ -49,7 +49,6 @@ type fake struct {
 	password  string
 	user      string // the POSTGRES_USER (and POSTGRES_DB) it was made with
 	exists    bool
-	noDocker  bool
 	port      int  // the port the container publishes (docker port); 0: none
 	taken     int  // a port someone else holds now: docker start fails while the container publishes it
 	published bool // the container is published at all (false: made on a network of its own)

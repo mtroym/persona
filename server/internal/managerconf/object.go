@@ -13,7 +13,7 @@ import (
 
 // Object is a JSON object that keeps its keys in order and every value as it was: an edit of manager.json changes the
 // keys it means to and nothing else (fields this build does not know, written by a newer one or by hand, stay). The
-// same as the hub's own editor of hub.json (hub/admin_config.go).
+// hub edits hub.json with it too (hub/admin_config.go).
 type Object struct {
 	keys []string
 	vals map[string]json.RawMessage
@@ -190,7 +190,7 @@ func editIf(path string, edit func(o *Object) (bool, error)) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	unlock, err := lockDir(dir)
+	unlock, err := LockDir(dir)
 	if err != nil {
 		return err
 	}

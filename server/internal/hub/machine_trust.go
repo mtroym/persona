@@ -450,7 +450,7 @@ func removeMachineEntry(dir, id string) (bool, error) {
 		if !found {
 			return nil
 		}
-		return o.set("machines", kept)
+		return o.Set("machines", kept)
 	})
 	return found, err
 }

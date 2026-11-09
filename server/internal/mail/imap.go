@@ -651,7 +651,11 @@ func textFromEntity(e *gomessage.Entity, depth int) string {
 	if mr := e.MultipartReader(); mr != nil {
 		for {
 			p, err := mr.NextPart()
-			if err != nil || p == nil {
+			if gomessage.IsUnknownEncoding(err) {
+				continue // a transfer encoding go-message cannot decode: skip the part, the next one is still readable
+			}
+			// A part in an unknown charset comes back with its raw body, as go-message intends.
+			if p == nil || (err != nil && !gomessage.IsUnknownCharset(err)) {
 				return "" // end of this multipart (or a truncated tail)
 			}
 			if text := textFromEntity(p, depth+1); text != "" {
@@ -858,7 +862,7 @@ func parseMessage(raw []byte, msg *MailMessage) {
 	var htmlBody string
 	attachmentIndex := 0
 	for {
-		part, err := r.NextPart()
+		part, err := nextPart(r)
 		if err != nil {
 			break
 		}
@@ -873,7 +877,7 @@ func parseMessage(raw []byte, msg *MailMessage) {
 				htmlBody = body
 			}
 		case *gomail.AttachmentHeader:
-			// Downloads count every physical attachment, including parts whose body cannot be decoded.
+			// Downloads count every attachment nextPart returns, including parts whose body cannot be decoded.
 			attachmentIndex++
 			attachment, err := attachmentMetadata(h, part.Body, attachmentIndex, io.Discard)
 			if err == nil {

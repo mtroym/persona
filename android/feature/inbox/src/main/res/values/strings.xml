@@ -160,6 +160,7 @@
     <string name="inbox_triage_timeout">The triage model is too slow</string>
     <string name="inbox_triage_behind">Too many new messages, queued</string>
     <string name="inbox_triage_configure">Set up</string>
+    <string name="inbox_read_failed">Not read this round; the list may be incomplete</string>
     <string name="inbox_translating">Translating into %1$s…</string>
     <string name="inbox_translation_original">Original</string>
     <string name="inbox_translated_into">Translated into %1$s</string>

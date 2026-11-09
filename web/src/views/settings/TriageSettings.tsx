@@ -65,6 +65,7 @@ export function TriageSettings({ onModel }: { onModel?: () => void }) {
 
   return (
     <Group
+      anchor="triage"
       title={t("settings-triagesettings.title")}
       footer={
         <>

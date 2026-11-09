@@ -10,6 +10,7 @@ import (
 	"html"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -113,6 +114,38 @@ func TestParsePostAtFallback(t *testing.T) {
 				t.Fatalf("got %q, want %q", got, "见 "+tc.want)
 			}
 		})
+	}
+}
+
+// A mention key stands for one person only as a whole key: with eleven mentions, @_user_1 is not the start of
+// @_user_10 or @_user_11, in a text message, in the text of a post and in a post's at nodes that carry the key.
+func TestParseContentMentionKeysAreWhole(t *testing.T) {
+	var mentions []Mention
+	var keys, names, atNodes []string
+	for i := 1; i <= 11; i++ {
+		key, name := fmt.Sprintf("@_user_%d", i), fmt.Sprintf("Person%c", 'A'+i-1)
+		mentions = append(mentions, Mention{Key: key, Name: name})
+		keys, names = append(keys, key), append(names, "@"+name)
+		atNodes = append(atNodes, fmt.Sprintf(`{"tag":"at","user_id":%q,"user_name":""}`, key))
+	}
+	// Longer keys before the shorter ones they start with, and the other way round.
+	reversed := slices.Clone(keys)
+	slices.Reverse(reversed)
+	reversedNames := slices.Clone(names)
+	slices.Reverse(reversedNames)
+	text, _ := json.Marshal(map[string]string{"text": strings.Join(keys, " ") + " | " + strings.Join(reversed, " ")})
+	want := strings.Join(names, " ") + " | " + strings.Join(reversedNames, " ")
+	if got := ParseContent("text", string(text), mentions).Text; got != want {
+		t.Fatalf("text\n got %q\nwant %q", got, want)
+	}
+	post := `{"title":"","content":[[` + strings.Join(atNodes, `,{"tag":"text","text":" "},`) + `],[{"tag":"text","text":` + fmt.Sprintf("%q", strings.Join(reversed, " ")) + `}]]}`
+	want = strings.Join(names, " ") + "\n" + strings.Join(reversedNames, " ")
+	if got := ParseContent("post", post, mentions).Text; got != want {
+		t.Fatalf("post\n got %q\nwant %q", got, want)
+	}
+	// A key no mention names, and a mention with no name, leave the key as it stands.
+	if got := ParseContent("text", `{"text":"@_user_12 @_user_2"}`, []Mention{{Key: "@_user_1", Name: "PersonA"}, {Key: "@_user_2"}}).Text; got != "@_user_12 @_user_2" {
+		t.Fatalf("unnamed: %q", got)
 	}
 }
 

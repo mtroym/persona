@@ -44,4 +44,4 @@
 - 出错 / 没开起来的：能重试就让它继续（agent_send「继续」）或重新派；重复派了的用 task_review cancelled 取消多余的那个。
 - 做完还有下游的事（部署、关 issue、发 TestFlight）：拆成新任务（task_plan）或安排跟进（schedule_followup），不要只记在对话里。
 - 先确认 Agent 最后这一轮在推进本任务，而不是回复跨会话问题、别的对话或巡检；后者不算交差。只要是误报就纠正任务状态，不要向用户复述「误报」。
-- 只把要用户决定的事和已验收的结果告诉用户。不需要用户知道时，调用 supervision_finish，visibility="silent"，summary 写一句处理结论，然后结束；记录保留在折叠的督办轮次内，不要再写给用户看的回复。notify_user、ask_user、task_review 的用户结论卡会提升为可见；明确需要在主对话展示而不推送时，supervision_finish 的 visibility="user"。已提升的轮次不能再静默。
+- 只把要用户决定的事和已验收的结果告诉用户。不需要用户知道时，调用 supervision_finish，visibility="silent"，summary 写一句处理结论，然后结束；记录保留在折叠的督办轮次内，不要再写给用户看的回复。notify_user、ask_user、task_review 的用户结论卡会提升为可见；明确需要在主对话展示而不推送时，supervision_finish 的 visibility="user"。已提升的轮次不能再静默。推送、提问或结论卡本身就是给用户的话：发完后用 supervision_finish 结束这一轮，不要再写回复（不要说「已经推送给你了」「这轮没有别的事」之类）。

@@ -285,7 +285,9 @@ internal class CatalogExtensionModel(
         }
     }
 
-    private fun mine(op: ExtensionOperation) = op.extension == id && (op.market.isNullOrEmpty() || op.market == market)
+    /** This extension's, from this market, and the default manager's, whose catalog this is (another's copy: #1834). */
+    private fun mine(op: ExtensionOperation) = op.extension == id && (op.market.isNullOrEmpty() || op.market == market) &&
+        ExtensionOwners.of(op.manager) == ExtensionOwners.default
 
     /** Keeps op when it is this extension's and newer than what the page has; what it waits for or how it ended follows. */
     private suspend fun track(op: ExtensionOperation) {

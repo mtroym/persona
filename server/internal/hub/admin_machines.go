@@ -347,7 +347,7 @@ func (h *Hub) adminMachineRoutes(mux *http.ServeMux) {
 // machineEntries is hub.json's "machines", each entry as it is in the file.
 func machineEntries(o *jsonObject) ([]json.RawMessage, error) {
 	var list []json.RawMessage
-	if raw, ok := o.get("machines"); ok && strings.TrimSpace(string(raw)) != "null" {
+	if raw, ok := o.Get("machines"); ok && strings.TrimSpace(string(raw)) != "null" {
 		if err := json.Unmarshal(raw, &list); err != nil {
 			return nil, errors.New("hub.json machines is not a list")
 		}
@@ -396,11 +396,11 @@ func setMachineField(o *jsonObject, id, key string, v any) error {
 		if err != nil {
 			return err
 		}
-		if err := entry.set(key, v); err != nil {
+		if err := entry.Set(key, v); err != nil {
 			return err
 		}
-		list[i] = entry.marshal()
-		return o.set("machines", list)
+		list[i] = entry.Marshal()
+		return o.Set("machines", list)
 	}
 	return errors.New("hub.json has no such machine")
 }

@@ -99,12 +99,6 @@ export function searchSent(candidates: SentEntry[], query: string, max: number =
 
 // ── ↑ / ↓ recall ─────────────────────────────────────────────────────────────
 
-/** Where the arrow keys are: `index` into the history (oldest first) of the message in the box, -1 when the box holds
- *  something else. */
-export interface Recall {
-  index: number;
-}
-
 /** Whether ↑ / ↓ walk the history: the box is empty or still shows the message it recalled. A multi-line message
  *  keeps the arrows for its own lines until the caret is on the first (↑) or the last (↓) one. */
 export function canRecall(o: { draft: string; shown: string | null; dir: "up" | "down"; firstLine: boolean; lastLine: boolean }): boolean {

@@ -290,7 +290,7 @@ func readConfigFile(dir string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if _, ok := raw.get("token"); !ok {
+	if _, ok := raw.Get("token"); !ok {
 		return nil, fmt.Errorf("%s has no token: %w", path, errNoHubToken)
 	}
 	for _, machine := range cfg.Machines {
@@ -318,11 +318,11 @@ var errHubJSONKept = errors.New("hub.json kept as it is")
 // meantime is kept.
 func initConfigFile(dir string) error {
 	err := editHubJSON(dir, func(o *jsonObject) error {
-		if _, ok := o.get("token"); ok {
+		if _, ok := o.Get("token"); ok {
 			return errHubJSONKept
 		}
 		if _, err := os.Stat(filepath.Join(dir, "hub.json")); err == nil {
-			return o.set("token", randomHex(24)) // as defaultConfig makes it
+			return o.Set("token", randomHex(24)) // as defaultConfig makes it
 		} else if !os.IsNotExist(err) {
 			return err
 		}

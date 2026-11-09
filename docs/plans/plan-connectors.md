@@ -9,7 +9,7 @@ After the user approves, follow "Implementation steps" and check completed steps
 
 | Pipeline | Lark | Moments | Mail |
 | --- | --- | --- | --- |
-| Knowledge-base archive | `larkSource` (`kb.Source` + `kb.Backfiller`, `hub/kb.go`) | `momentsSource` (same, empty `Older`) | `mailSource` is a shell; real archiving is a separate `hub.kbMail` loop, cursor in `mail-cursors.json`, calling `kb.Engine.Ingest` |
+| Knowledge-base archive | `larkSource` (`kb.Source` + `kb.Backfiller`, then in the hub's kb.go) | `momentsSource` (same, empty `Older`) | `mailSource` is a shell; real archiving is a separate `hub.kbMail` loop, cursor in `mail-cursors.json`, calling `kb.Engine.Ingest` |
 | Documents / meetings / events | `larkItems` (`kb.ItemSource`) | — | — |
 | `Inbox` | `collectLark`, `collectDocs` (`inbox.go`, `inbox_docs.go`) | `collectMoments` (`inbox_moments.go`) | `collectMail` (`inbox.go`) |
 | `Inbox` items | Hardcoded `Source: "lark"`, separate `Lark` / `Doc` / `Moment` blocks | Same | `Source: "mail"`, `Mail` block |

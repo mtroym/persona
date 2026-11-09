@@ -14,6 +14,7 @@ import persona.core.contracts.ExtensionOperationEvent
 import persona.core.contracts.ExtensionAuthEvent
 import persona.core.contracts.Hello
 import persona.core.contracts.ServerEvent
+import persona.core.contracts.pushManager
 import persona.core.contracts.api.*
 import persona.core.hub.HttpConnectorsManagement
 import persona.core.hub.HttpComputerPairing
@@ -300,5 +301,6 @@ object MachineManagementModule {
  * while the socket stays up loses them with only a managers push to tell (#1832).
  */
 internal fun extensionOperationUpdates(events: Flow<ServerEvent>): Flow<ExtensionOperation?> = events.transform { event ->
-    if (event is Hello || event is ManagersEvent) emit(null) else if (event is ExtensionOperationEvent) emit(event.operation)
+    if (event is Hello || event is ManagersEvent) emit(null)
+    else if (event is ExtensionOperationEvent) emit(event.operation.copy(manager = pushManager(event.manager)))
 }

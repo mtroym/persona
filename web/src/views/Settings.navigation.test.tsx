@@ -55,7 +55,7 @@ describe("Settings category navigation", () => {
     await mount("/settings?tab=shortcuts");
     const region = host.querySelector('[role="region"]')!;
     expect(host.querySelector("header nav")).toBeNull();
-    expect(nav().nextElementSibling).toBe(region);
+    expect(nav().parentElement!.nextElementSibling).toBe(region);
     expect(nav().getAttribute("aria-label")).toBe(t("settings.categories"));
     expect(nav().classList.contains("overflow-y-auto")).toBe(true);
     expect(region.classList.contains("overflow-y-auto")).toBe(true);

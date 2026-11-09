@@ -2,8 +2,6 @@ package extmgr
 
 import (
 	"context"
-	"errors"
-	"net/http"
 	"slices"
 
 	"github.com/nwverse/persona/server/internal/connector"
@@ -92,14 +90,4 @@ func (h *Manager) hubJSONWaitsForTriageModel(ctx context.Context, p *extension.E
 	}
 	usable, err := h.triageUsable(ctx)
 	return err == nil && !usable // while the assistant can't be asked, it is not said to need setting up
-}
-
-// writeExtensionErr answers a refused plugin change: 409 needs_triage_model when the triage model is missing, else
-// status with code.
-func writeExtensionErr(w http.ResponseWriter, status int, code string, err error) {
-	if errors.Is(err, errNeedsTriageModel) {
-		writeErrCode(w, http.StatusConflict, "needs_triage_model", err)
-		return
-	}
-	writeErrCode(w, status, code, err)
 }

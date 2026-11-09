@@ -20,6 +20,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import persona.core.contracts.api.ConnectionState
 import persona.core.contracts.GroupKeys
 import persona.core.contracts.ExtensionUiEvent
+import persona.core.contracts.pushManager
 import persona.core.contracts.api.ExtensionManagement
 import persona.core.contracts.api.ExtensionUi
 import persona.core.contracts.api.ExtensionUiContext
@@ -171,8 +172,11 @@ class ExtensionSlots internal constructor(
     /** The `ui.invalidate`s among the hub's events (UI version 3): the views on screen are drawn again. */
     val invalidations: Flow<ExtensionUiEvent> get() = events.filter { it.invalidate }
 
-    /** An `extension_ui` event: the nav page's badge changes (none clears it); an invalidation leaves badges alone. */
-    fun badge(event: ExtensionUiEvent) = if (event.invalidate) Unit else mutable.update { s ->
+    /**
+     * An `extension_ui` event: the nav page's badge changes (none clears it); an invalidation leaves badges alone. These
+     * entries are the default manager's list, so another manager's badge for its own copy is left out (#1834).
+     */
+    fun badge(event: ExtensionUiEvent) = if (event.invalidate || pushManager(event.manager) != ExtensionOwners.default) Unit else mutable.update { s ->
         s.copy(places = s.places.map { if (it.extension == event.extension && it.id == event.id && it.placement == ExtensionSlotText.NavPage) it.copy(badge = event.badge?.takeIf { b -> b.text.isNotBlank() }) else it })
     }
 }

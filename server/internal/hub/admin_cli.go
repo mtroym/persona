@@ -83,7 +83,7 @@ func adminAccessCommand(ctx context.Context, dir string, args []string, stdout, 
 		return err
 	}
 	var current AdminConfig
-	if raw, ok := o.get("admin"); ok {
+	if raw, ok := o.Get("admin"); ok {
 		_ = json.Unmarshal(raw, &current)
 	}
 	if *get {
@@ -132,19 +132,19 @@ func adminAccessCommand(ctx context.Context, dir string, args []string, stdout, 
 		return errors.New("--cidrs 只和 cidrs 一起用")
 	}
 	err = editHubJSON(dir, func(o *jsonObject) error {
-		admin, err := o.object("admin")
+		admin, err := o.Object("admin")
 		if err != nil {
 			return err
 		}
-		if err := admin.set("access", access); err != nil {
+		if err := admin.Set("access", access); err != nil {
 			return err
 		}
 		if access == accessCIDRs {
-			if err := admin.set("cidrs", cidrs); err != nil {
+			if err := admin.Set("cidrs", cidrs); err != nil {
 				return err
 			}
 		}
-		o.setObject("admin", admin)
+		o.SetObject("admin", admin)
 		return nil
 	})
 	if err != nil {

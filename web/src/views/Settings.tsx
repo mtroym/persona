@@ -37,7 +37,7 @@ import { NotificationSettings } from "./settings/NotificationSettings";
 import { ChannelList, ChannelPage } from "./settings/Channels";
 import { ConnectDevice } from "./settings/ConnectDevice";
 import { settingsTarget } from "../lib/channels";
-import { routeSub } from "../lib/extension-market";
+import { extensionsRoute, routeSub } from "../lib/extension-market";
 import { ownedSub, parseOwnedSub } from "../lib/manager-choice";
 import { HubSettings } from "./settings/HubSettings";
 import { ManagersSettings } from "./settings/ManagersSettings";
@@ -50,7 +50,7 @@ import { ProviderWizard } from "./settings/ProviderWizard";
 import { ProviderImport } from "./settings/ProviderImport";
 import { builtinRows, loadLaunchers, rcFilesOf, rcGroups, syncStateText, type LauncherSync } from "../lib/launcher-list";
 import { TerminalModeRow } from "./settings/TerminalModeSetting";
-import { FROM_LIST, LIST_GROUPS, openedFromList, redirectLegacySettings, settingsAt, settingsHref, TAB_INFO, TABS, type SettingsSection, type Tab } from "./settings/nav";
+import { FROM_LIST, NAV_GROUPS, openedFromList, redirectLegacySettings, searchSettings, settingsAt, settingsHref, TAB_INFO, TABS, type SearchGroup, type SettingsSection, type Tab } from "./settings/nav";
 import { SHEET_QUERY, useMedia } from "../ui/overlay";
 import { formatList, t } from "../i18n";
 
@@ -119,6 +119,8 @@ export function tokens(n: number): string {
 
 export function Settings({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const phone = useMedia(SHEET_QUERY);
+  // list pages (channels / connectors / extensions) keep their list beside the open item from this width
+  const twoCol = useMedia("(min-width: 900px)");
   // Keep the connection pill (App.tsx) below the page header, including at larger text sizes.
   const header = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -170,13 +172,7 @@ export function Settings({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const hasExtensions = useStore((s) => hubHasExt(s.features, "manager"));
   const hasChannels = useStore((s) => s.features.includes("channels"));
   const shown = (k: Tab) => (k !== "extensions" || hasExtensions || tab === "extensions") && (k !== "channels" || hasChannels || tab === "channels");
-  const tabs = TABS.filter(shown).map((k) => ({ k, ...TAB_INFO[k] }));
   const contentId = useId();
-  const categories = useRef<HTMLElement>(null);
-  // A deep link or a width change can select a category below the sidebar's fold.
-  useEffect(() => {
-    categories.current?.querySelector('[aria-current="page"]')?.scrollIntoView?.({ block: "nearest" });
-  }, [tab, phone, hasExtensions, hasChannels]);
   const configurationOwner = useRef<string | null>(new URLSearchParams(location.search).get("manager"));
   const pick = (k: Tab, id: string | null = null, section?: SettingsSection) => {
     configurationOwner.current = new URLSearchParams(location.search).get("manager") ?? configurationOwner.current;
@@ -191,6 +187,35 @@ export function Settings({ onToggleSidebar }: { onToggleSidebar: () => void }) {
     if (openedFromList(history.state)) return history.back();
     history.replaceState(null, "", href({ name: "settings" }));
     setAt({ tab: null, sub: null, section: null });
+  };
+  // Settings search: filters the sidebar categories, and jumps to a group inside a page (scroll + brief highlight).
+  const [query, setQuery] = useState("");
+  const search = searchSettings(query);
+  const [scrollAnchor, setScrollAnchor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!scrollAnchor) return;
+    const el = scroller.current?.querySelector<HTMLElement>(`[data-settings-group="${scrollAnchor}"]`) ?? document.getElementById(scrollAnchor);
+    if (!el) {
+      setScrollAnchor(null);
+      return;
+    }
+    el.scrollIntoView({ block: "start" });
+    const card = el.querySelector<HTMLElement>(":scope > div") ?? el;
+    const prev = card.style.boxShadow;
+    card.style.boxShadow = "inset 0 0 0 2px var(--accent)";
+    const timer = setTimeout(() => {
+      card.style.boxShadow = prev;
+      setScrollAnchor(null);
+    }, 1200);
+    return () => {
+      clearTimeout(timer);
+      card.style.boxShadow = prev;
+    };
+  }, [scrollAnchor, tab]);
+  const goGroup = (g: SearchGroup) => {
+    setQuery("");
+    pick(g.tab, null);
+    setScrollAnchor(g.anchor);
   };
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
@@ -209,24 +234,7 @@ export function Settings({ onToggleSidebar }: { onToggleSidebar: () => void }) {
       </header>
       <div className="flex min-h-0 min-w-0 flex-1">
         {!phone && (
-          <nav ref={categories} className="flex w-56 shrink-0 flex-col gap-0.5 overflow-y-auto overscroll-contain border-r border-line bg-inset p-3" aria-label={t("settings.categories")}>
-            {tabs.map((it) => (
-              <button
-                key={it.k}
-                type="button"
-                onClick={() => pick(it.k)}
-                aria-current={tab === it.k ? "page" : undefined}
-                aria-controls={contentId}
-                className={cx(
-                  "flex min-h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-control px-3 text-left text-sm transition-colors duration-150 motion-reduce:transition-none",
-                  tab === it.k ? "bg-hover-2 font-medium text-ink" : "text-ink-2 hover:bg-hover hover:text-ink",
-                )}
-              >
-                <Icon name={it.icon} />
-                <span className="truncate" title={it.label}>{it.label}</span>
-              </button>
-            ))}
-          </nav>
+          <SettingsNav tab={tab} query={query} onQuery={setQuery} search={search} shown={shown} onPick={pick} onGroup={goGroup} contentId={contentId} />
         )}
         <div ref={scroller} id={contentId} role={listed ? undefined : "region"} aria-label={listed ? undefined : TAB_INFO[tab].label} tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent">
           {listed ? (
@@ -234,7 +242,7 @@ export function Settings({ onToggleSidebar }: { onToggleSidebar: () => void }) {
               <SettingsList shown={shown} onPick={pick} />
             </div>
           ) : (
-            <div key={tab} className="mx-auto max-w-[760px] px-5 py-6 sm:px-8" style={{ animation: `fade-up 320ms ${EASE} both` }}>
+            <div key={tab} className={cx("mx-auto px-5 py-6 sm:px-8", tab === "channels" || tab === "connectors" || tab === "extensions" ? "max-w-[1120px]" : "max-w-[760px]")} style={{ animation: `fade-up 320ms ${EASE} both` }}>
               {tab === "general" && <General onModel={() => pick("models", "translate", "model-config")} />}
               {tab === "persona" && <PersonaSettings onTriageModel={() => pick("models", "agent.triage", "model-config")} onExtensions={() => pick("extensions")} />}
               {tab === "notifications" && <NotificationSettings />}
@@ -253,17 +261,39 @@ export function Settings({ onToggleSidebar }: { onToggleSidebar: () => void }) {
                   <AgentSettings agent={agent} />
                 </section>
               ))}
-              {tab === "channels" && (sub ? (
+              {tab === "channels" && (sub ? (twoCol ? (
+                <div className="flex gap-6">
+                  <div className="w-[300px] shrink-0"><ChannelList onOpen={(id) => pick("channels", id)} onMarketItem={(market, id) => pick("extensions", routeSub({ kind: "item", market, id }))} /></div>
+                  <div className="min-w-0 flex-1"><ChannelPage key={sub} {...parseOwnedSub(sub)} onBack={() => pick("channels")} onSettings={(url) => {
+                    const target = settingsTarget(url);
+                    if (target && TABS.includes(target.tab as Tab)) pick(target.tab as Tab, target.sub);
+                  }} /></div>
+                </div>
+              ) : (
                 <ChannelPage key={sub} {...parseOwnedSub(sub)} onBack={() => pick("channels")} onSettings={(url) => {
                   const target = settingsTarget(url);
                   if (target && TABS.includes(target.tab as Tab)) pick(target.tab as Tab, target.sub);
                 }} />
-              ) : (
+              )) : (
                 <ChannelList onOpen={(id) => pick("channels", id)} onMarketItem={(market, id) => pick("extensions", routeSub({ kind: "item", market, id }))} />
               ))}
-              {tab === "connectors" && <Connectors open={sub} onOpen={(id) => pick("connectors", id)} onChannel={(id, manager) => pick("channels", ownedSub(id, manager))} />}
+              {tab === "connectors" && (sub && sub !== "feishu-bot" && twoCol ? (
+                <div className="flex gap-6">
+                  <div className="w-[300px] shrink-0"><Connectors open={null} onOpen={(id) => pick("connectors", id)} onChannel={(id, manager) => pick("channels", ownedSub(id, manager))} /></div>
+                  <div className="min-w-0 flex-1"><Connectors open={sub} onOpen={(id) => pick("connectors", id)} onChannel={(id, manager) => pick("channels", ownedSub(id, manager))} /></div>
+                </div>
+              ) : (
+                <Connectors open={sub} onOpen={(id) => pick("connectors", id)} onChannel={(id, manager) => pick("channels", ownedSub(id, manager))} />
+              ))}
               {tab === "sent" && <SentSettings />}
-              {tab === "extensions" && <Extensions open={sub} onOpen={(id) => pick("extensions", id)} onChannel={(id, manager) => pick("channels", ownedSub(id, manager))} onConnector={(id, manager) => pick("connectors", ownedSub(id, manager))} />}
+              {tab === "extensions" && (extensionsRoute(sub).kind === "extension" && twoCol ? (
+                <div className="flex gap-6">
+                  <div className="w-[300px] shrink-0"><Extensions open={null} onOpen={(id) => pick("extensions", id)} onChannel={(id, manager) => pick("channels", ownedSub(id, manager))} onConnector={(id, manager) => pick("connectors", ownedSub(id, manager))} /></div>
+                  <div className="min-w-0 flex-1"><Extensions open={sub} onOpen={(id) => pick("extensions", id)} onChannel={(id, manager) => pick("channels", ownedSub(id, manager))} onConnector={(id, manager) => pick("connectors", ownedSub(id, manager))} /></div>
+                </div>
+              ) : (
+                <Extensions open={sub} onOpen={(id) => pick("extensions", id)} onChannel={(id, manager) => pick("channels", ownedSub(id, manager))} onConnector={(id, manager) => pick("connectors", ownedSub(id, manager))} />
+              ))}
               {tab === "shortcuts" && <ShortcutSettings />}
               {tab === "devices" && <Devices />}
               {tab === "hub" && <HubSettings />}
@@ -276,11 +306,97 @@ export function Settings({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   );
 }
 
+/** The desktop left sidebar: a sticky "Settings" title and search box, then the grouped categories. */
+function SettingsNav({ tab, query, onQuery, search, shown, onPick, onGroup, contentId }: {
+  tab: Tab;
+  query: string;
+  onQuery: (q: string) => void;
+  search: ReturnType<typeof searchSettings>;
+  shown: (k: Tab) => boolean;
+  onPick: (k: Tab) => void;
+  onGroup: (g: SearchGroup) => void;
+  contentId: string;
+}) {
+  const nav = useRef<HTMLElement>(null);
+  // A deep link or a width change can select a category below the sidebar's fold.
+  useEffect(() => {
+    nav.current?.querySelector('[aria-current="page"]')?.scrollIntoView?.({ block: "nearest" });
+  }, [tab, query]);
+  const tabs = search.tabs.filter(shown);
+  const groups = search.groups.filter((g) => shown(g.tab));
+  const none = !!query && !tabs.length && !groups.length;
+  return (
+    <aside className="flex w-[236px] shrink-0 flex-col border-r border-line bg-inset">
+      <div className="shrink-0 border-b border-line px-3 pt-3 pb-2.5">
+        <div className="text-[14px] font-semibold text-ink">{t("settings.title")}</div>
+        <label className="mt-2 flex h-8 items-center gap-2 rounded-control bg-surface px-2.5 shadow-btn focus-within:shadow-[inset_0_0_0_1px_var(--accent)]">
+          <Icon name="search" size={13} stroke={2} className="shrink-0 text-ink-3" />
+          <input value={query} onChange={(e) => onQuery(e.target.value)} placeholder={t("settings.search_placeholder_settings")} aria-label={t("settings.search_settings")} className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-3" />
+          {query && <IconButton icon="x" label={t("settings.clear")} size={22} iconSize={12} onClick={() => onQuery("")} />}
+        </label>
+      </div>
+      <nav ref={nav} aria-label={t("settings.categories")} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+        {query ? (
+          <>
+            {tabs.map((k) => <NavRow key={k} k={k} selected={tab === k} contentId={contentId} onPick={onPick} />)}
+            {groups.length > 0 && <div className="px-3 pt-3 pb-1 text-[11px] font-medium text-ink-3">{t("settings.search_in_page")}</div>}
+            {groups.map((g) => <GroupResult key={`${g.tab}/${g.anchor}`} g={g} onGroup={onGroup} />)}
+            {none && <p className="px-3 py-3 text-[12.5px] leading-relaxed text-ink-3">{t("settings.search_no_results")}</p>}
+          </>
+        ) : (
+          NAV_GROUPS.map((g) => {
+            const its = g.tabs.filter(shown);
+            if (!its.length) return null;
+            return (
+              <div key={g.title}>
+                <div className="px-3 pt-3 pb-1 text-[11px] font-medium text-ink-3">{g.title}</div>
+                {its.map((k) => <NavRow key={k} k={k} selected={tab === k} contentId={contentId} onPick={onPick} />)}
+              </div>
+            );
+          })
+        )}
+      </nav>
+    </aside>
+  );
+}
+
+function NavRow({ k, selected, contentId, onPick }: { k: Tab; selected: boolean; contentId: string; onPick: (k: Tab) => void }) {
+  const info = TAB_INFO[k];
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(k)}
+      aria-current={selected ? "page" : undefined}
+      aria-controls={contentId}
+      className={cx(
+        "relative flex h-8 w-full items-center gap-2 rounded-[7px] px-2.5 text-left text-[13px] transition-colors",
+        selected ? "bg-accent-tint font-medium text-accent-ink" : "text-ink-2 hover:bg-hover hover:text-ink",
+      )}
+    >
+      {selected && <span aria-hidden className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-accent" />}
+      <Icon name={info.icon} size={15} className="shrink-0" />
+      <span className="truncate" title={info.label}>{info.label}</span>
+    </button>
+  );
+}
+
+function GroupResult({ g, onGroup }: { g: SearchGroup; onGroup: (g: SearchGroup) => void }) {
+  return (
+    <button type="button" onClick={() => onGroup(g)} className="flex w-full items-center gap-1.5 rounded-[7px] px-3 py-1.5 text-left text-[12.5px] text-ink-2 transition-colors hover:bg-hover hover:text-ink">
+      <span className="min-w-0 truncate">
+        <span className="font-medium text-ink">{TAB_INFO[g.tab].label}</span>
+        <span className="mx-1 text-ink-3">›</span>
+        <span>{g.group}</span>
+      </span>
+    </button>
+  );
+}
+
 /** The phone's first page of Settings: the categories in grouped cards, each opening its page (as on iOS). */
 function SettingsList({ shown, onPick }: { shown: (k: Tab) => boolean; onPick: (k: Tab) => void }) {
   return (
     <nav aria-label={t("settings.categories")}>
-      {LIST_GROUPS.map((g) => {
+      {NAV_GROUPS.map((g) => {
         const tabs = g.tabs.filter(shown);
         if (!tabs.length) return null;
         return (
@@ -311,7 +427,7 @@ function General({ onModel }: { onModel: () => void }) {
 
   return (
     <>
-      <Group title={t("settings.appearance")}>
+      <Group title={t("settings.appearance")} anchor="appearance">
         <div className="flex gap-2 p-3">
           {themes.map((th) => (
             <button
@@ -353,7 +469,7 @@ function PersonaSettings({ onTriageModel, onExtensions }: { onTriageModel: () =>
   const contextAsUsed = useContextAsUsed();
   return (
     <>
-      <Group title={t("settings.avatar")} footer={t("settings.avatar_footer")}>
+      <Group title={t("settings.avatar")} footer={t("settings.avatar_footer")} anchor="avatar">
         <PersonaPicker onExtensions={onExtensions} />
       </Group>
       <AssistantSettings bare />
@@ -362,7 +478,7 @@ function PersonaSettings({ onTriageModel, onExtensions }: { onTriageModel: () =>
 
       <AgentGroup />
 
-      <Group title={t("settings.agent_preferences")}>
+      <Group title={t("settings.agent_preferences")} anchor="agent-preferences">
         <TerminalModeRow />
         <Row label={t("settings.sidebar_terminals")} hint={t("settings.sidebar_terminals_hint")}>
           <Switch on={sidebarTerminals} onChange={setSidebarTerminals} label={t("settings.sidebar_terminals")} />
@@ -395,7 +511,7 @@ function About() {
   const others = mesh.filter((h) => !h.self);
   const disconnect = useDisconnect();
   return (
-    <Group title={t("settings.this_browser")} footer={t("settings.this_browser_footer")}>
+    <Group title={t("settings.this_browser")} footer={t("settings.this_browser_footer")} anchor="this-browser">
       <Row label={t("settings.hub_address")} mono>
         {location.host}
       </Row>

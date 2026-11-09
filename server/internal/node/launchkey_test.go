@@ -25,7 +25,7 @@ func launchKeyHome(t *testing.T) string {
 	t.Cleanup(func() { os.RemoveAll(home) })
 	t.Setenv("HOME", home)
 	t.Setenv("PERSONA_HOME", "")
-	t.Setenv("PERSONA_HOME", "")
+	t.Setenv("JARVIS_HOME", "")
 	if err := os.MkdirAll(filepath.Dir(nodeclient.SocketPath()), 0o700); err != nil {
 		t.Fatal(err)
 	}

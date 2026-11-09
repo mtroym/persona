@@ -91,8 +91,8 @@ func (h *Manager) assistantAsker(sessionID, machine string) asker {
 	return asker{machine, ""}
 }
 
-// hubTools are the names of the hub's own tools a connector may not shadow (the phone's by their prefix), and the
-// assistant's.
+// assistantToolsNow are the assistant's tools as it last listed them (none before it connects): a connector's tool
+// may not shadow one (builtinTools).
 func (h *Manager) assistantToolsNow() []proto.Tool {
 	if h.opts.AssistantTools == nil {
 		return nil

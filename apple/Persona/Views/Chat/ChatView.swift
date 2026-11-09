@@ -65,6 +65,10 @@ struct ChatView: View {
     @State private var pane: SessionPane = .chat
     @State private var git: GitStatus?
     @State private var menu = MessageMenu()
+    #if os(iOS)
+    /// Full Page in this chat's system screenshot (#1609).
+    @State private var fullPage = ChatFullPage()
+    #endif
     /// Work lines the user tapped open (by line id; kept here so lazy rows coming back keep their state).
     @State private var openWork: Set<String> = []
     @State private var openSupervision: Set<String> = []
@@ -778,16 +782,56 @@ struct ChatView: View {
             if viewing != nil { model.subscribe(shownKey, by: owner) }
             model.show(key, by: owner)
             model.markSeen(key)
+            #if os(iOS)
+            fullPage.document = { fullPageDocument() }
+            fullPage.setShown(true)
+            #endif
         }, disappear: {
             rememberReadPosition()
             if viewing != nil { model.unsubscribe(shownKey, by: owner) }
             model.unsubscribe(key, by: owner)
             model.hide(by: owner)
+            #if os(iOS)
+            fullPage.setShown(false)
+            fullPage.document = nil // it holds this view, whose state holds the page
+            #endif
         })
+        #if DEBUG && os(iOS)
+        // `-fullPagePDF <path>`: once the chat has loaded, writes its Full Page PDF there and the report beside it
+        // (<path>.json); `-fullPageMaxHeight <pt>` lowers the height limit (#1609).
+        .task(id: "full-page-debug") {
+            guard let path = UserDefaults.standard.string(forKey: "fullPagePDF"), !path.isEmpty else { return }
+            for _ in 0..<120 where !store.loadedOnce { try? await Task.sleep(for: .milliseconds(250)) }
+            try? await Task.sleep(for: .seconds(3))
+            var limits = fullPage.limits
+            let max = UserDefaults.standard.double(forKey: "fullPageMaxHeight")
+            if max > 0 { limits.maxHeight = max }
+            if case .success(let pdf) = await fullPage.export(limits: limits) {
+                try? pdf.data.write(to: URL(fileURLWithPath: path))
+            }
+            if let report = fullPage.lastReport, let data = try? JSONEncoder().encode(report) {
+                try? data.write(to: URL(fileURLWithPath: path + ".json"))
+            }
+        }
+        #endif
         .onChange(of: session?.state) { _, st in
             if st == .unread && model.visibleSession == key { model.markSeen(key) }
         }
     }
+
+    #if os(iOS)
+    /// What Full Page draws (#1609): the loaded lines, oldest first, as the list draws them; where the screen was.
+    /// Unsent messages, the live text and the composer are not part of it.
+    private func fullPageDocument() -> ChatFullPage.Document? {
+        let lines = currentLines()
+        guard !lines.isEmpty, let environment = fullPage.environment, scratch.listFrame.width > 0 else { return nil }
+        let visible = Set(scratch.visibleLines)
+        let anchor = scratch.atNewest ? nil : lines.first { visible.contains($0.id) }?.id
+        return ChatFullPage.Document(lines: lines.map { line in .init(id: line.id, view: AnyView(lineView(line))) },
+                                     width: scratch.listFrame.width, background: UIColor(Theme.pageBackground),
+                                     environment: environment, anchor: anchor, viewport: scratch.listFrame.height)
+    }
+    #endif
 
     /// The chat as a flat list of lines (see `ChatLine`): every message of a turn opens its own exchange — the
     /// message, one work line for what the agent did after it, and the agent's last words before the next message.
@@ -1219,7 +1263,7 @@ struct ChatView: View {
 
     /// Where a work line's header is, by its top: the open header is taller than the folded one, and held by its
     /// middle it pushed what is above it 10 pt up. The content is upside down: the top on screen is its far edge there.
-    nonisolated private static func headSpot(_ g: GeometryProxy) -> ChatPin.Spot {
+    nonisolated fileprivate static func headSpot(_ g: GeometryProxy) -> ChatPin.Spot {
         ChatPin.Spot(y: g.frame(in: .global).minY, content: g.frame(in: .named(ChatPin.space)).maxY)
     }
 
@@ -1270,7 +1314,7 @@ struct ChatView: View {
                 toggleWork(id, fromHeader: true)
             }
             .equatable()
-            .onGeometryChange(for: ChatPin.Spot.self, of: Self.headSpot) { workHeadMoved(id, $0) }
+            .modifier(WorkHeadReport(id: id, moved: workHeadMoved))
         case .workStep(let group, let item, let first):
             WorkStepView(item: item, first: first).equatable()
                 .unfolding(stepUnfolding(group, item: item))
@@ -1287,7 +1331,7 @@ struct ChatView: View {
             ToolRunRow(calls: calls, open: open, first: first) { toggleRun(id, calls: calls) }
                 .equatable()
                 .unfolding(stepUnfolding(id.components(separatedBy: "/run-")[0])) // a run's id is "<work line>/run-<first call>"
-                .onGeometryChange(for: ChatPin.Spot.self, of: Self.headSpot) { workHeadMoved(id, $0) }
+                .modifier(WorkHeadReport(id: id, moved: workHeadMoved))
         case .workEnd(let group, let count, let files):
             if AppStyle.current.usesBeautifulUI {
                 // The foot of the open work line's card: the files it changed, then Collapse.
@@ -2487,6 +2531,12 @@ struct ChatView: View {
         return list
         .environment(menu)
         .environment(\.chatPin, pin)
+        #if os(iOS)
+        .background {
+            FullPageEnvironmentReader(page: fullPage)
+            FullPageAnchor { [fullPage] in fullPage.setAnchor($0) }
+        }
+        #endif
         .onAppear {
             pin.letGo = { [position = $position] in position.wrappedValue = ScrollPosition(idType: String.self) }
             pin.onRising = { [rising = $pinRising] in rising.wrappedValue = $0 }
@@ -5763,6 +5813,22 @@ struct WorkLine: View, Equatable {
 }
 
 private struct EditIndex: Identifiable { var id: Int }
+
+/// Where a work line's or tool run's header is, told to the chat's pin (`workHeadMoved`). Not from Full Page's copies of
+/// the lines (#1609): they are off screen, and their positions moved the list the next time a header was tapped.
+private struct WorkHeadReport: ViewModifier {
+    let id: String
+    let moved: (String, ChatPin.Spot) -> Void
+    @Environment(\.fullPageExport) private var exporting
+
+    func body(content: Content) -> some View {
+        if exporting {
+            content
+        } else {
+            content.onGeometryChange(for: ChatPin.Spot.self, of: ChatView.headSpot) { moved(id, $0) }
+        }
+    }
+}
 
 
 /// The chat list's offset and visible height, watched together (see `scrolled`).

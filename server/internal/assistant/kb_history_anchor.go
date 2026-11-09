@@ -42,6 +42,9 @@ type historyAnchorYear struct {
 	Cursor string    `json:"cursor,omitempty"`
 	Done   bool      `json:"done,omitempty"`
 	Hits   int       `json:"hits"`
+	// Partial: the search of this year ended before its last page (a page refused, or More with no cursor to go
+	// on), so its hits are not all of the owner's messages that year: the year is not covered either.
+	Partial bool `json:"partial,omitempty"`
 }
 
 // historyAnchorsCache is anchors-<source>.json.
@@ -104,11 +107,11 @@ func (d *historyDriver) saveAnchors(c *historyAnchorsCache) error {
 	return nil
 }
 
-// uncovered are the years whose search found nothing, newest first.
+// uncovered are the years whose search found nothing or did not finish, newest first.
 func (c *historyAnchorsCache) uncovered() []int {
 	var out []int
 	for _, y := range c.Years {
-		if y.Done && y.Hits == 0 {
+		if y.Done && (y.Hits == 0 || y.Partial) {
 			out = append(out, y.Year)
 		}
 	}
@@ -213,7 +216,7 @@ func (d *historyDriver) gatherYear(ctx context.Context, cache *historyAnchorsCac
 			case historyStopIt:
 				return haltWhy(true, c.stopWhy(code))
 			}
-			y.Done = true // the search refused this window: the year is not covered, its chats are read backwards
+			y.Done, y.Partial = true, true // the search refused this window: the year is not covered, its chats are read backwards
 		case ans.Pace != nil && ans.Pace.Stop:
 			return historySourceStop(ans.Pace)
 		case ans.Pace != nil:
@@ -238,7 +241,8 @@ func (d *historyDriver) gatherYear(ctx context.Context, cache *historyAnchorsCac
 				y.Hits++
 			}
 			if !ans.More || ans.Next == "" || ans.Next == y.Cursor {
-				y.Done = true
+				// More with no new cursor: the rest of the year cannot be paged to, so it is not covered.
+				y.Done, y.Partial = true, ans.More
 			} else {
 				y.Cursor = ans.Next
 			}

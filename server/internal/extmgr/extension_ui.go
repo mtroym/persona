@@ -351,6 +351,9 @@ func (h *Manager) uiCall(ctx context.Context, id, uiID string, in uiRequest) (ex
 			if err := checkPushes(p.Manifest, item, &v, nil); err != nil {
 				return res, err
 			}
+			if err := h.signPictures(id, uiID, params.UIVersion, &v, nil); err != nil {
+				return res, err
+			}
 			res.View = &v
 			return res, nil
 		}
@@ -369,6 +372,9 @@ func (h *Manager) uiCall(ctx context.Context, id, uiID string, in uiRequest) (ex
 			return extension.ActionResult{}, err
 		}
 		if err := checkPushes(p.Manifest, item, res.View, res.Push); err != nil {
+			return extension.ActionResult{}, err
+		}
+		if err := h.signPictures(id, uiID, params.UIVersion, res.View, res.Items); err != nil {
 			return extension.ActionResult{}, err
 		}
 		if params.UIVersion < 3 {

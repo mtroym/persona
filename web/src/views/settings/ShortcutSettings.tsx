@@ -201,7 +201,7 @@ export function ShortcutSettings() {
           })}
         </Group>
       ))}
-      <Group title={t("settings-shortcutsettings.terminal_title")} footer={t("settings-shortcutsettings.terminal_footer")}>
+      <Group title={t("settings-shortcutsettings.terminal_title")} anchor="shortcuts-terminal" footer={t("settings-shortcutsettings.terminal_footer")}>
         {LOCAL_SHORTCUTS.map((s) => (
           <Row key={s.id} label={s.label} hint={platform === "other" ? s.note : undefined}>
             <span className="flex items-center gap-1 px-1.5">

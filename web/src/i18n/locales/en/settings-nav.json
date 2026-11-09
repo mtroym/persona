@@ -13,8 +13,6 @@
   "tab_translate": "Translation",
   "tab_shortcuts": "Shortcuts",
   "tab_devices": "Devices",
-  "group_general": "Basics",
-  "group_models": "Models and agents",
   "group_connections": "Connections",
   "hint_general": "Appearance, navigation, and translation",
   "hint_notifications": "When to notify and play a sound",
@@ -28,5 +26,8 @@
   "tab_managers": "Managers",
   "hint_managers": "Where each assistant runs and whether it's online",
   "tab_sent": "Sent as you",
-  "hint_sent": "What Persona sent in your name, and why it was allowed"
+  "hint_sent": "What Persona sent in your name, and why it was allowed",
+  "group_personal": "Personal",
+  "group_assistant": "Assistant",
+  "group_system": "System"
 }

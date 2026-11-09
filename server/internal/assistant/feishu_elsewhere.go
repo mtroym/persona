@@ -270,7 +270,7 @@ func (s *Service) elsewhereQuote(ctx context.Context, id string) string {
 	if it.MessageID != id || it.Deleted || it.MsgType != "text" && it.MsgType != "post" {
 		return ""
 	}
-	c := feishubot.ParseContent(it.MsgType, it.Body.Content, nil)
+	c := feishubot.ParseContent(it.MsgType, it.Body.Content, it.MentionList())
 	if c.Forward {
 		return ""
 	}

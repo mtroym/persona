@@ -358,18 +358,40 @@ func TestStashRaceBeforeLockRefusesChangedSelection(t *testing.T) {
 	}
 }
 
+// stashApplyAsksRefHook reports whether plain `git stash apply` is stopped by a refusing reference-transaction hook in
+// hooks. That depends on the Git version: Git 2.50 updates a ref through a transaction during the apply, Git 2.43 updates
+// none and never asks the hook. The node's apply is that same command, so it is refused exactly when Git refuses.
+func stashApplyAsksRefHook(t *testing.T, hooks string) bool {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "probe")
+	runPullGit(t, filepath.Dir(dir), "init", "--initial-branch=main", dir)
+	putFile(t, dir, "probe.txt", "first\n")
+	runPullGit(t, dir, "add", "--", "probe.txt")
+	runPullGit(t, dir, "commit", "-m", "Probe")
+	putFile(t, dir, "probe.txt", "second\n")
+	runPullGit(t, dir, "stash", "push", "-q")
+	runPullGit(t, dir, "config", "core.hooksPath", hooks)
+	_, err := git(context.Background(), dir, "stash", "apply")
+	return err != nil
+}
+
 func TestStashUnsupportedBackendAndHook(t *testing.T) {
 	for _, mode := range []string{"reftable", "reference-hook"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newPullFixture(t)
 			cwd := f.local
 			if mode == "reftable" {
+				// Git before 2.45 has no reftable backend and echoes the option back (stashRefBackend).
+				if runPullGit(t, f.local, "rev-parse", "--show-ref-format") == "--show-ref-format" {
+					t.Skip("this Git has no reftable backend (Git 2.45+)")
+				}
 				cwd = filepath.Join(filepath.Dir(f.local), "table")
 				runPullGit(t, filepath.Dir(f.local), "clone", "--ref-format=reftable", f.seed, cwd)
 			}
 			putFile(t, cwd, "app.txt", "selected\n")
 			runPullGit(t, cwd, "stash", "push", "-qm", "selected")
 			selected := selectedStash(t, f.node, cwd, 0)
+			hookRefusesApply := false
 			if mode == "reference-hook" {
 				hooks := filepath.Join(t.TempDir(), "hooks")
 				if err := os.Mkdir(hooks, 0700); err != nil {
@@ -379,6 +401,7 @@ func TestStashUnsupportedBackendAndHook(t *testing.T) {
 					t.Fatal(err)
 				}
 				runPullGit(t, cwd, "config", "core.hooksPath", hooks)
+				hookRefusesApply = stashApplyAsksRefHook(t, hooks)
 			}
 			for _, op := range []string{"pop", "drop"} {
 				_, err := stashRequest(t, f.node, cwd, op, selected)
@@ -393,7 +416,7 @@ func TestStashUnsupportedBackendAndHook(t *testing.T) {
 				}
 			}
 			_, err := stashRequest(t, f.node, cwd, "apply", selected)
-			if mode == "reference-hook" {
+			if hookRefusesApply {
 				if err == nil {
 					t.Fatal("apply bypassed the reference hook")
 				}
@@ -441,7 +464,13 @@ func TestStashSHA256AndMergeConflict(t *testing.T) {
 				f.commit(t, cwd, "app.txt", "first\n")
 			}
 			putFile(t, cwd, "app.txt", "selected\n")
-			runPullGit(t, cwd, "stash", "push", "-qm", "selected")
+			if _, err := git(context.Background(), cwd, "stash", "push", "-qm", "selected"); err != nil {
+				if mode == "sha256" {
+					// Git 2.43 cannot stash in a SHA-256 repository at all ("Cannot save the current status").
+					t.Skipf("this Git cannot stash in a SHA-256 repository: %v", err)
+				}
+				t.Fatal(err)
+			}
 			selected := selectedStash(t, f.node, cwd, 0)
 			if mode == "sha256" && len(selected["oid"].(string)) != 64 {
 				t.Fatal("not a SHA-256 selection")

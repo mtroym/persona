@@ -264,12 +264,11 @@ func TestDoctorFixWritesProcessTypeAndReloads(t *testing.T) {
 // residentSockets stands in for the resident node's node.sock (answers a ping) and runtime.sock: stop takes them down
 // the way a node that bootout stopped leaves them (the files stay, nobody answers), start serves them again.
 type residentSockets struct {
-	t          *testing.T
-	node, rt   string
-	mu         sync.Mutex
-	lns        []net.Listener
-	started    int
-	answeredAt time.Time // when node.sock first answered after the last start
+	t        *testing.T
+	node, rt string
+	mu       sync.Mutex
+	lns      []net.Listener
+	started  int
 }
 
 func newResidentSockets(t *testing.T, dir string) *residentSockets {

@@ -75,6 +75,9 @@ type fakeHistory struct {
 	archives int
 	inflight atomic.Int32
 	most     atomic.Int32
+
+	// anchorHook, when set, answers history.anchors instead of the year's anchors (ok false: it does not).
+	anchorHook func(q connectorwire.HistoryAnchorsQuery) (connectorwire.HistoryAnchors, error, bool)
 }
 
 func (f *fakeHistory) enter() func() {
@@ -161,6 +164,11 @@ func (f *fakeHistory) Anchors(_ context.Context, _ string, q connectorwire.Histo
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, fmt.Sprintf("anchors %d", q.Since.Year()))
+	if f.anchorHook != nil {
+		if a, err, ok := f.anchorHook(q); ok {
+			return a, err
+		}
+	}
 	return connectorwire.HistoryAnchors{Anchors: f.anchors[q.Since.Year()]}, nil
 }
 

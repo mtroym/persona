@@ -118,7 +118,6 @@ type feishuBook struct {
 	status   *FeishuStatus
 	statusAt time.Time
 	now      func() time.Time     // tests
-	cotOff   bool                 // Feishu refused an agent message (feishu_cot.go)
 	startAt  map[string]time.Time // recent /start form presses, for one press one agent (feishu_card_actions.go)
 	// line is closed when the last message taken is through (FeishuMessage): the chat's messages are handled one at
 	// a time, in the order they came.
@@ -519,7 +518,6 @@ func (s *Service) feishuReset() {
 	b.st = botState{Current: botTarget{Kind: targetMain}, Threads: map[string]*botThread{}, Seen: b.st.Seen, Pairing: pairing}
 	b.cards, b.ended = nil, nil
 	b.status = nil
-	b.cotOff = false // paired afresh (maybe another app): agent messages are tried again
 	s.saveBotStateLocked()
 	b.mu.Unlock()
 }

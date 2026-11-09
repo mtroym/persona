@@ -41,18 +41,18 @@ func (h *Hub) assistantPersonaViewLocked() bool {
 // file) kept as it was; off removes the key (its default) and an "assistant" left empty with it.
 func setAssistantPersonaView(dir string, on bool) error {
 	return editHubJSON(dir, func(o *jsonObject) error {
-		a, err := o.object("assistant") // not an object: an error, the file stays as it is
+		a, err := o.Object("assistant") // not an object: an error, the file stays as it is
 		if err != nil {
 			return err
 		}
 		if on {
-			if err := a.set("persona_view", true); err != nil {
+			if err := a.Set("persona_view", true); err != nil {
 				return err
 			}
 		} else {
-			a.del("persona_view")
+			a.Del("persona_view")
 		}
-		o.setObject("assistant", a)
+		o.SetObject("assistant", a)
 		return nil
 	})
 }

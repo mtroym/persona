@@ -357,11 +357,11 @@ func (h *Hub) editKeptMachine(ctx context.Context, mid string, set map[string]an
 		return true, err
 	}
 	for k, v := range set {
-		if err := obj.set(k, v); err != nil {
+		if err := obj.Set(k, v); err != nil {
 			return true, err
 		}
 	}
-	return true, h.putKept(ctx, o, mid, obj.marshal())
+	return true, h.putKept(ctx, o, mid, obj.Marshal())
 }
 
 // machineGone takes a machine the hub no longer has out of what it shows (its manager's next report would too).
@@ -561,7 +561,7 @@ func (h *Hub) moveOutOfHubJSON(ctx context.Context, o string, ids []string) erro
 		if err := keepMovedCopy(h.cfg.dir, moved); err != nil {
 			return err
 		}
-		return obj.set("machines", kept)
+		return obj.Set("machines", kept)
 	})
 	if err != nil {
 		return err
@@ -622,7 +622,7 @@ func hubJSONEntry(dir, mid string) (raw json.RawMessage, listed bool, err error)
 	if err != nil {
 		return nil, false, err
 	}
-	if _, listed = o.get("machines"); !listed {
+	if _, listed = o.Get("machines"); !listed {
 		return nil, false, nil
 	}
 	list, err := machineEntries(o)
@@ -681,7 +681,7 @@ func (h *Hub) moveKept(ctx context.Context, mid, from, to string) error {
 					return nil
 				}
 			}
-			return o.set("machines", append(list, entry))
+			return o.Set("machines", append(list, entry))
 		}); err != nil {
 			return err
 		}

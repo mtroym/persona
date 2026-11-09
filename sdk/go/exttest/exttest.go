@@ -174,6 +174,27 @@ func Check(t testing.TB, manifest []byte, run Run, config ...json.RawMessage) wi
 			if err := CheckView(raw, size != wire.SizeFull); err != nil {
 				t.Fatalf("ui %s (%s): %v", u.ID, size, err)
 			}
+			if u.Placement == wire.PlacementWidget {
+				continue
+			}
+			var v wire.View
+			_ = json.Unmarshal(raw, &v)
+			checkImages(ctx, t, h, u.ID, u.Placement, &v)
+			// drawn for an app of the version before, it is still a view: the extension does not count on every app
+			// drawing the newest version
+			older := params
+			older.UIVersion = uiVersion - 1
+			var oldRaw json.RawMessage
+			err = h.call(ctx, "ui.render", older, &oldRaw)
+			switch c := code(err); {
+			case c == wire.ErrorCodeUnknownMethod || c == wire.ErrorCodeNoContribution:
+				t.Fatalf("ui %s: ui.render for UI version %d answered %v", u.ID, older.UIVersion, err)
+			case err != nil:
+				continue
+			}
+			if err := CheckView(oldRaw, size != wire.SizeFull); err != nil {
+				t.Fatalf("ui %s drawn for UI version %d: %v", u.ID, older.UIVersion, err)
+			}
 		}
 	}
 
@@ -211,6 +232,31 @@ func Check(t testing.TB, manifest []byte, run Run, config ...json.RawMessage) wi
 		}
 	}
 	return res
+}
+
+// imageRefsChecked is how many of a view's refs are asked for.
+const imageRefsChecked = 20
+
+// checkImages asks ui.image for each picture v drew by ref (UI version 6) and holds the answer to what the hub's image
+// proxy takes (wire.CheckImage). An error in words is allowed (a camera the test cannot reach), not knowing the
+// method or the contribution is not.
+func checkImages(ctx context.Context, t testing.TB, h *hub, ui, placement string, v *wire.View) {
+	for k, ref := range wire.ImageRefs(v) {
+		if k == imageRefsChecked {
+			return
+		}
+		var img wire.UIImage
+		err := h.call(ctx, "ui.image", wire.UIImageParams{Contribution: ui, Ref: ref, Width: 640, Placement: placement}, &img)
+		switch c := code(err); {
+		case c == wire.ErrorCodeUnknownMethod || c == wire.ErrorCodeNoContribution:
+			t.Fatalf("ui %s: it draws ref %q, and ui.image answered %v", ui, ref, err)
+		case err != nil:
+			continue
+		}
+		if _, err := wire.CheckImage(&img); err != nil {
+			t.Fatalf("ui %s: ref %q: %v", ui, ref, err)
+		}
+	}
 }
 
 // uiVersion is the UI version the views are checked for: the newest these wire types know.

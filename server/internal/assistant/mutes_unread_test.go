@@ -45,16 +45,3 @@ func TestMutesComeFromTheHub(t *testing.T) {
 		t.Fatalf("an unmuted agent's card was not pushed: %+v", got)
 	}
 }
-
-// lastMuted is the muted sessions of the last list the hub was told for machine.
-func (ft *fleetTest) lastMuted(machine string) []string {
-	ft.t.Helper()
-	list := ft.toldOf(assistantwire.EventFleetSessions)
-	for i := len(list) - 1; i >= 0; i-- {
-		var p assistantwire.FleetSessions
-		if json.Unmarshal(list[i], &p) == nil && p.MachineID == machine {
-			return p.Muted
-		}
-	}
-	return nil
-}

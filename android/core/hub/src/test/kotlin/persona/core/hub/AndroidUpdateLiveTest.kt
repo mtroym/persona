@@ -6,13 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
-import java.io.IOException
 import java.io.OutputStream
-import java.net.InetSocketAddress
-import java.net.Proxy
-import java.net.ProxySelector
-import java.net.SocketAddress
-import java.net.URI
 import java.security.DigestOutputStream
 import java.security.MessageDigest
 
@@ -32,37 +26,31 @@ class AndroidUpdateLiveTest {
             "Live update probe requires a credential-free HTTPS origin"
         }
         var stage = "initialization"
-        val previousProxy = ProxySelector.getDefault()
+        var bytes = 0L
+        var stageStarted = System.nanoTime()
         try {
-            System.getenv("PERSONA_ANDROID_UPDATE_PROXY")?.takeIf { it.isNotBlank() }?.let {
-                val proxy = it.toHttpUrl()
-                require(proxy.scheme == "http" && proxy.host in setOf("127.0.0.1", "localhost", "::1") &&
-                    proxy.username.isEmpty() && proxy.password.isEmpty() && proxy.encodedPath == "/" &&
-                    proxy.query == null && proxy.fragment == null) { "Proxy must be a credential-free loopback HTTP endpoint" }
-                val route = Proxy(Proxy.Type.HTTP, InetSocketAddress(proxy.host, proxy.port))
-                ProxySelector.setDefault(object : ProxySelector() {
-                    override fun select(uri: URI): List<Proxy> = listOf(route)
-                    override fun connectFailed(uri: URI, address: SocketAddress, error: IOException) {
-                        throw IllegalStateException("Loopback proxy connection failed")
-                    }
-                })
-            }
             HubPairingClient(
                 System.getenv("PERSONA_ANDROID_UPDATE_HUB_ID")?.takeIf { it.isNotBlank() },
                 System.getenv("PERSONA_ANDROID_UPDATE_FINGERPRINT")?.takeIf { it.isNotBlank() },
                 listOf(base.toString()), "android-update-live-probe",
             ).use { client ->
+                val http = client.http.client
+                assertEquals("Production update transport must remain direct", java.net.Proxy.NO_PROXY, http.proxy)
+                println("Android update live probe transport=DIRECT connectTimeoutMs=${http.connectTimeoutMillis} " +
+                    "readTimeoutMs=${http.readTimeoutMillis} " +
+                    "artifactProxyEnvironmentIgnored=${!System.getenv("PERSONA_ANDROID_UPDATE_PROXY").isNullOrBlank()}")
                 stage = "metadata"
+                stageStarted = System.nanoTime()
                 val update = requireNotNull(client.checkUpdate(token!!)) { "No published Android update" }
                 assertEquals("Published version differs", expectedVersion, update.versionCode)
                 assertEquals("Metadata hash differs", checksum.lowercase(), update.sha256?.lowercase())
                 val digest = MessageDigest.getInstance("SHA-256")
-                var bytes = 0L
                 val counter = object : OutputStream() {
                     override fun write(value: Int) { bytes++ }
                     override fun write(buffer: ByteArray, offset: Int, length: Int) { bytes += length }
                 }
                 stage = "download"
+                stageStarted = System.nanoTime()
                 DigestOutputStream(counter, digest).use { client.download(token, update, it) }
                 assertTrue("APK response is empty", bytes > 0)
                 val actual = digest.digest().joinToString("") { "%02x".format(it) }
@@ -70,14 +58,19 @@ class AndroidUpdateLiveTest {
                 println("Android update live probe PASS: version=$expectedVersion sha256=$actual bytes=$bytes")
             }
         } catch (error: Exception) {
-            // Remote bodies or exception URLs must never place credentials into a test report.
-            val causes = generateSequence(error as Throwable) { it.cause }.take(8)
-                .joinToString(" -> ") { it.javaClass.simpleName }
-            val failure = error as? HubFailure
-            throw AssertionError("Live update probe failed: stage=$stage kind=${failure?.kind} " +
-                "status=${failure?.status} causes=$causes")
-        } finally {
-            ProxySelector.setDefault(previousProxy)
+            val elapsedMs = (System.nanoTime() - stageStarted) / 1_000_000
+            throw AssertionError(updateProbeFailure(stage, bytes, elapsedMs, error))
         }
     }
+}
+
+/** Retain failure locations, never exception messages, URLs, remote bodies or the original cause. */
+internal fun updateProbeFailure(stage: String, bytes: Long, elapsedMs: Long, error: Exception): String {
+    val causes = generateSequence(error as Throwable) { it.cause }.take(8).joinToString(" -> ") { cause ->
+        val frames = cause.stackTrace.take(6).joinToString(",") { "${it.className}.${it.methodName}:${it.lineNumber}" }
+        "${cause.javaClass.simpleName}[$frames]"
+    }
+    val failure = HubFailure.from(error)
+    return "Live update probe failed: stage=$stage bytes=$bytes elapsedMs=$elapsedMs " +
+        "kind=${failure.kind} status=${failure.status} causes=$causes"
 }

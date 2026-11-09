@@ -421,23 +421,6 @@ func TestProcessPanelPathologicalBounded(t *testing.T) {
 	}
 }
 
-// Another conversation's refusal does not touch an agent message already open: it is finished, not left spinning.
-func TestCotRefusalLeavesOpenAgentMessagesAlone(t *testing.T) {
-	s, posts, calls := cotHub(t, false)
-	r, _ := cotRun(s)
-	withCot(s, r)
-	sink := feishuSink{s}
-	sink.progress(context.Background(), r, time.Second, nil, "")
-	s.fbot.mu.Lock()
-	s.fbot.cotOff = true // another conversation was refused meanwhile
-	s.fbot.mu.Unlock()
-	sink.progress(context.Background(), r, 6*time.Second, nil, "")
-	s.finishChannelRun(r, &channel.Result{Answer: "结论"})
-	if got := strings.Join(*calls, " "); !strings.HasSuffix(got, "RUN_FINISHED") || len(*posts) != 1 {
-		t.Fatalf("calls %s, posts %v", got, *posts)
-	}
-}
-
 // An append of more than 50 events that fails part way goes on from the chunk that failed; nothing is sent twice.
 func TestCotAppendGoesOnFromTheFailedChunk(t *testing.T) {
 	s, _, _ := cotHub(t, false)

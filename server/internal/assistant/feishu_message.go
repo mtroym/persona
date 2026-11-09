@@ -384,7 +384,7 @@ func (s *Service) botQuote(ctx context.Context, id string) (*prompts.BotQuote, [
 		return nil, nil
 	}
 	it := items[0]
-	c := feishubot.ParseContent(it.MsgType, it.Body.Content, nil)
+	c := feishubot.ParseContent(it.MsgType, it.Body.Content, it.MentionList())
 	who := "Persona"
 	if it.Sender.SenderType == "user" {
 		who = s.botName(ctx, it.Sender.ID)
@@ -408,7 +408,7 @@ func (s *Service) botForward(ctx context.Context, id string) string {
 		if it.UpperMessageID != id {
 			continue
 		}
-		c := feishubot.ParseContent(it.MsgType, it.Body.Content, nil)
+		c := feishubot.ParseContent(it.MsgType, it.Body.Content, it.MentionList())
 		text := c.Text
 		if text == "" {
 			text = "[" + it.MsgType + "]"

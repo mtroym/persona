@@ -136,7 +136,7 @@ type mirrorSend struct {
 	sent   func() // when set, called once the first card is out
 }
 
-// stillDue: a retry of m may go now: the switch its conversation needs is on, its notify_user did not go to Feishu
+// mirrorStillDue: a retry of m may go now: the switch its conversation needs is on, its notify_user did not go to Feishu
 // meanwhile, and its turn is still the conversation's last (an old morning brief must not land under a newer answer).
 func (s *Service) mirrorStillDue(ctx context.Context, m *mirrorSend) bool {
 	f, ready := s.feishuFeatures(ctx)

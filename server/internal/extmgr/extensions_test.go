@@ -81,6 +81,10 @@ func TestMain(m *testing.M) {
 		serveUIExtensionForTest()
 		return
 	}
+	if os.Getenv("PERSONA_TEST_PLUGIN") == "images" {
+		serveImagesExtensionForTest()
+		return
+	}
 	if os.Getenv("PERSONA_TEST_PLUGIN") == "system" {
 		serveSystemExtensionForTest()
 		return

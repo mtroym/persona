@@ -28,6 +28,8 @@ func standbyHome(t *testing.T) string {
 	}
 	t.Cleanup(func() { os.RemoveAll(home) })
 	t.Setenv("HOME", home)
+	t.Setenv("PERSONA_HOME", "")
+	t.Setenv("JARVIS_HOME", "")
 	return home
 }
 

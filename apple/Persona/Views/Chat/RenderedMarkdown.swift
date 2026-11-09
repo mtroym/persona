@@ -56,6 +56,9 @@ final class MarkdownRenderer {
         let key = Self.key(kind, source, dark: dark, points: points)
         if let image = images.object(forKey: key as NSString) { return image }
         if let message = failures[key] { throw Failure(message: message) }
+        // A Full Page strip waits for this (#1609).
+        let fullPageLoad = FullPageLoads.shared.begin()
+        defer { FullPageLoads.shared.end(fullPageLoad) }
         let file = dir.appending(path: key + ".png")
         let scale = Self.screenScale, template = kind != .mermaid
         if let image = await Task.detached(priority: .userInitiated, operation: { Self.decode(file, scale: scale, template: template) }).value {

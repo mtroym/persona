@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hkdf"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -309,4 +310,18 @@ func SyncDir(dir string) error {
 	}
 	defer d.Close()
 	return d.Sync()
+}
+
+// Derive is a key of n bytes for one purpose (info, such as "persona extension image v1"), derived from the box's key
+// with HKDF-SHA256: nothing more is stored, it is the same across restarts and redeploys as long as the key file is,
+// and it says nothing about the box's key or another purpose's.
+func (b *Box) Derive(info string, n int) ([]byte, error) {
+	if info == "" {
+		return nil, errors.New("derive: say what the key is for")
+	}
+	key, err := b.Key()
+	if err != nil {
+		return nil, err
+	}
+	return hkdf.Key(sha256.New, key, nil, info, n)
 }

@@ -154,4 +154,38 @@ class InboxTriageShotsTest {
         rule.waitForIdle()
         assertEquals(0, rule.onAllNodes(hasText("在等分拣", substring = true)).fetchSemanticsNodes().size)
     }
+
+    // #1849: a source the hub could not read this round keeps its earlier items, and the list says so (the hub's
+    // read_reason, a plain line without one) apart from the triage banner, until the next good read.
+    @Test fun saysWhichSourcesWereNotReadThisRound() {
+        fun triage(json: String) = InboxTriage.decode(persona.core.contracts.JsonCodec.parseToJsonElement(json))
+        val unread = triage("""{"state":"ok","waiting":0,"sources":[
+            {"source":"examplechat","name":"示例聊天","state":"ok","read_error":"timeout","read_reason":"这一轮没读到：超时了"},
+            {"source":"lark","name":"飞书","state":"ok","read_error":"failed"},
+            {"source":"mail","name":"邮件","state":"ok"}]}""")
+        var shown by mutableStateOf(unread)
+        var style by mutableStateOf(AppStyle.Glass)
+        var dark by mutableStateOf(false)
+        rule.setContent {
+            PersonaTheme(darkTheme = dark, reduceMotion = true, style = style) {
+                key(shown, style, dark) {
+                    Box(Modifier.testTag("shot").width(400.dp).height(900.dp).background(PersonaTheme.palette.background)) {
+                        InboxScreen(OneInbox(InboxSnapshot(records = records, triage = shown)), navigator)
+                    }
+                }
+            }
+        }
+        for (s in AppStyle.entries) for (d in listOf(false, true)) {
+            style = s; dark = d
+            rule.waitForIdle()
+            rule.onNodeWithText("示例聊天：这一轮没读到：超时了", substring = true).assertExists()
+            rule.onNodeWithText("飞书：这一轮没读到，列表可能不全", substring = true).assertExists()
+            assertEquals("a source that was read says nothing", 0, rule.onAllNodes(hasText("邮件：", substring = true)).fetchSemanticsNodes().size)
+            capture("inbox-unread-${s.name.lowercase()}-${if (d) "dark" else "light"}")
+        }
+        // Read again: the notice goes.
+        shown = triage("""{"state":"ok","waiting":0,"sources":[{"source":"examplechat","name":"示例聊天","state":"ok"}]}""")
+        rule.waitForIdle()
+        assertEquals(0, rule.onAllNodes(hasText("这一轮没读到", substring = true)).fetchSemanticsNodes().size)
+    }
 }

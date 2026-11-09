@@ -920,6 +920,25 @@ type UIParams struct {
 	Item         *UIInboxItem      `json:"item,omitempty"`
 }
 
+// UIImageParams: ui.image's parameters (UI version 6): the hub asks the extension for a picture it drew as a ref, for
+// the ui contribution that drew it. width is the pixel width the app wants (320, 640, 1280 or 2048; 0 when it says
+// nothing); the extension may ignore it.
+type UIImageParams struct {
+	Contribution string `json:"contribution"`
+	Ref          string `json:"ref"`
+	Width        int    `json:"width,omitempty"`
+	Placement    string `json:"placement,omitempty"`
+}
+
+// UIImage: what ui.image answers: the picture's bytes in base64 (png, jpeg, webp or gif, at most 4 MB decoded and
+// 8192 pixels a side; the hub reads the type from the bytes, not from mime) and how long the hub may keep it
+// (seconds, 60 when absent; a camera 5 to 10, a still 86400).
+type UIImage struct {
+	Mime   string `json:"mime"`
+	Data   string `json:"data"`
+	MaxAge *int   `json:"max_age,omitempty"`
+}
+
 type UIMachine struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
@@ -5574,6 +5593,8 @@ var newDef = map[string]func() any{
 	"ExtensionInfo":                 func() any { return new(ExtensionInfo) },
 	"InitializeResult":              func() any { return new(InitializeResult) },
 	"UIParams":                      func() any { return new(UIParams) },
+	"UIImageParams":                 func() any { return new(UIImageParams) },
+	"UIImage":                       func() any { return new(UIImage) },
 	"UIMachine":                     func() any { return new(UIMachine) },
 	"UILauncher":                    func() any { return new(UILauncher) },
 	"UIInboxItem":                   func() any { return new(UIInboxItem) },

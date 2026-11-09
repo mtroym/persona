@@ -126,13 +126,13 @@ func (h *Hub) adminReload() error {
 		return err
 	}
 	var file AdminConfig
-	if raw, ok := o.get("admin"); ok {
+	if raw, ok := o.Get("admin"); ok {
 		if err := json.Unmarshal(raw, &file); err != nil {
 			return err
 		}
 	}
 	var name string
-	if raw, ok := o.get("name"); ok {
+	if raw, ok := o.Get("name"); ok {
 		_ = json.Unmarshal(raw, &name)
 	}
 	h.adminInit()
@@ -189,10 +189,10 @@ func (h *Hub) adminHubRoutes(mux *http.ServeMux) {
 			}
 			err := editHubJSON(h.cfg.dir, func(o *jsonObject) error {
 				if name == "" {
-					o.del("name")
+					o.Del("name")
 					return nil
 				}
-				return o.set("name", name)
+				return o.Set("name", name)
 			})
 			if err != nil {
 				writeErr(w, http.StatusInternalServerError, err)

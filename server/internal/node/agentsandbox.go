@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -86,6 +87,29 @@ func wrapAgent(where, home, dir, cwd string, settings []string, inner func() str
 	return argv, env, st
 }
 
+// paneStartWhere is the doctor's name for an agent the node starts in a herdr or Orca pane by a launcher other than
+// `personad launch`.
+const paneStartWhere = "pane"
+
+// notePaneStart records, while the sandbox is on, that an agent the node starts in a pane with launcher runs outside
+// it: there only a managed launcher (`personad launch`, which records its own start and clears this one) is wrapped, and herdr's resume
+// repeats the same command (docs/server/agent-sandbox.md, "Starts this version does not wrap"). The doctor then warns
+// instead of reading as if every agent were covered.
+func (n *Node) notePaneStart(launcher string) {
+	if _, managed := n.managedLauncher(launcher); managed {
+		// Once pane starts go through a managed launcher, an earlier unwrapped one is no longer what the doctor warns of.
+		forgetAgentSandbox(n.dir, paneStartWhere)
+		return
+	}
+	if on, _ := agentSandboxOn(n.dir); !on {
+		return
+	}
+	st := sandbox.AgentStatus{State: sandbox.AgentSkipped,
+		Why: "在 herdr 或 Orca 里用「" + launcher + "」启动（不是托管启动器 personad launch），这一版不包，herdr 重启后接着跑的也一样"}
+	log.Printf("agent sandbox: %s not wrapped (%s): %s", paneStartWhere, st.State, st.Why)
+	recordAgentSandbox(n.dir, paneStartWhere, st)
+}
+
 // agentSandboxRecord is one kind of start's last status.
 type agentSandboxRecord struct {
 	At time.Time `json:"at"`
@@ -94,9 +118,23 @@ type agentSandboxRecord struct {
 
 // recordAgentSandbox keeps st as where's last status (best effort: two starts at once may lose one).
 func recordAgentSandbox(dir, where string, st sandbox.AgentStatus) {
-	path := filepath.Join(dir, agentSandboxStatusFile)
 	all := readAgentSandboxStatus(dir)
 	all[where] = agentSandboxRecord{At: time.Now().UTC(), AgentStatus: st}
+	writeAgentSandboxStatus(dir, all)
+}
+
+// forgetAgentSandbox drops where's last status, when there is one.
+func forgetAgentSandbox(dir, where string) {
+	all := readAgentSandboxStatus(dir)
+	if _, ok := all[where]; !ok {
+		return
+	}
+	delete(all, where)
+	writeAgentSandboxStatus(dir, all)
+}
+
+func writeAgentSandboxStatus(dir string, all map[string]agentSandboxRecord) {
+	path := filepath.Join(dir, agentSandboxStatusFile)
 	b, err := json.MarshalIndent(all, "", "  ")
 	if err != nil {
 		return

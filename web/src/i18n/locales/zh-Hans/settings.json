@@ -146,5 +146,9 @@
   "sync_footer": "每台电脑这次有没有把列表发回来；没回应的显示上次的结果，并在供应商上标出来。",
   "stale": "{machines} 未更新",
   "stale_mark": "未更新",
-  "launchers_failed": "没有拿到供应商列表：{error}"
+  "launchers_failed": "没有拿到供应商列表：{error}",
+  "search_settings": "搜索设置",
+  "search_in_page": "页面内",
+  "search_no_results": "没有匹配的设置",
+  "search_placeholder_settings": "搜索设置"
 }

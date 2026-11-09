@@ -160,6 +160,8 @@ struct AssistantHTMLCard: View {
 
     @Environment(\.scenePhase) private var phase
     @Environment(\.tabIsActive) private var tabActive
+    /// Drawn for Full Page (#1609): a web view draws nothing off screen, so the card is its title and its words.
+    @Environment(\.fullPageExport) private var exporting
     @State private var onScreen = false
     @State private var stopped = false
     @State private var running = false
@@ -167,7 +169,7 @@ struct AssistantHTMLCard: View {
     @State private var pendingVersion: Int64?
     @State private var executionOwner = UUID()
 
-    private var eligible: Bool { enabled && onScreen && tabActive && phase == .active && (running || (autoRun && !stopped)) }
+    private var eligible: Bool { enabled && !exporting && onScreen && tabActive && phase == .active && (running || (autoRun && !stopped)) }
     private var executing: Bool { eligible && HTMLExecutionBudget.shared.owners.contains(executionOwner) }
 
     static let minHeight = 160
@@ -243,21 +245,23 @@ struct AssistantHTMLCard: View {
     }
 
     private var idle: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.s) {
+        // Full Page draws the card as the words it gave, whole, and says it is their summary (no Run on paper).
+        let live = enabled && !exporting
+        return VStack(alignment: .leading, spacing: Theme.Space.s) {
             if let fallback, !fallback.isEmpty {
-                Text(fallback).font(Theme.Font.secondary).foregroundStyle(.secondary).lineLimit(enabled ? 4 : nil)
+                Text(fallback).font(Theme.Font.secondary).foregroundStyle(.secondary).lineLimit(live ? 4 : nil)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(fallback)
                     .accessibilityIdentifier("html-card-fallback")
             }
-            if enabled {
+            if live {
                 Button { running = true; stopped = false; actions.restart() } label: {
                     Label(autoRun ? String(localized: "Retry [Components b8784c]") : String(localized: "Run"), systemImage: Theme.Icon.run).lineLimit(1)
                 }
                 .themedButton(prominent: true)
                 .accessibilityIdentifier("html-card-run")
             }
-            Text(enabled ? String(localized: "Page drawn by the assistant · Sandboxed. Replies and links need your confirmation.") : String(localized: "Page drawn by the assistant · Showing text summary"))
+            Text(live ? String(localized: "Page drawn by the assistant · Sandboxed. Replies and links need your confirmation.") : String(localized: "Page drawn by the assistant · Showing text summary"))
                 .font(Theme.Font.caption).foregroundStyle(.secondary)
         }
     }

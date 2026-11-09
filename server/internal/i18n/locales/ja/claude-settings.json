@@ -1,5 +1,5 @@
 {
   "effort_title": "思考の深さ",
-  "effort_detail": "高いほど丁寧に考え、時間がかかります。autoはモデルの既定値を使います。maxはセッションの思考設定か/effort maxで指定してください。",
-  "effort_max_ignored": "保存されたmaxは適用されていません。Claude Codeはsettings.jsonのmaxを無視し、モデルの既定値を使います。セッションの思考設定か/effort maxで指定してください。"
+  "effort_detail": "高いほど丁寧に考え、時間がかかります。autoはモデルの既定値を使います。すべての新しいエージェントでmaxを既定値にするには、「モデル構成 › Agents › 思考レベル」で設定してください。1つのセッションだけでmaxを使うには、セッションの思考設定か/effort maxで指定してください。",
+  "effort_max_ignored": "保存されたmaxは適用されていません。Claude Codeはsettings.jsonのmaxを無視し、モデルの既定値を使います。すべての新しいエージェントでmaxを既定値にするには、「モデル構成 › Agents › 思考レベル」で設定してください。1つのセッションだけでmaxを使うには、セッションの思考設定か/effort maxで指定してください。"
 }

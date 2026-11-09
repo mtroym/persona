@@ -166,6 +166,27 @@
       },
       "required": ["contribution", "state", "placement", "size", "ui_version"]
     },
+    "UIImageParams": {
+      "description": "ui.image's parameters (UI version 6): the hub asks the extension for a picture it drew as a ref, for the ui contribution that drew it. width is the pixel width the app wants (320, 640, 1280 or 2048; 0 when it says nothing); the extension may ignore it.",
+      "type": "object",
+      "properties": {
+        "contribution": {"type": "string"},
+        "ref": {"type": "string", "minLength": 1, "maxLength": 256},
+        "width": {"type": "integer", "minimum": 0, "maximum": 8192},
+        "placement": {"$ref": "view.schema.json#/$defs/Placement"}
+      },
+      "required": ["contribution", "ref"]
+    },
+    "UIImage": {
+      "description": "What ui.image answers: the picture's bytes in base64 (png, jpeg, webp or gif, at most 4 MB decoded and 8192 pixels a side; the hub reads the type from the bytes, not from mime) and how long the hub may keep it (seconds, 60 when absent; a camera 5 to 10, a still 86400).",
+      "type": "object",
+      "properties": {
+        "mime": {"type": "string", "maxLength": 64},
+        "data": {"type": "string", "minLength": 1},
+        "max_age": {"type": "integer", "minimum": 0, "maximum": 86400, "x-go-pointer": true}
+      },
+      "required": ["mime", "data"]
+    },
     "UIMachine": {
       "type": "object",
       "properties": {

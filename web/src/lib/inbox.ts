@@ -773,7 +773,7 @@ export function momentText(c?: MomentContent): string {
 // ── triage: the new items held back from the list (#1773) ───
 
 /**
- * How triage stands (GET /api/v1/inbox `triage`, server/internal/hub/inbox_admit.go): new items the model could not
+ * How triage stands (GET /api/v1/inbox `triage`, server/internal/assistant/inbox_admit.go): new items the model could not
  * sort wait outside the list. An older hub sends nothing.
  */
 export interface InboxTriage {

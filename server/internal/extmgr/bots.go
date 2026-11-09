@@ -165,7 +165,7 @@ func (h *Manager) saveBotSettingsLocked() {
 	}
 }
 
-// botCredentials: the app's id, secret and domain, from the app's settings, else hub.json.
+// botCredentialsLocked: the app's id, secret and domain, from the app's settings, else hub.json (h.bots.mu held).
 func (h *Manager) botCredentialsLocked() (appID, secret, domain string, fromConfig bool, err error) {
 	s := h.bots.set
 	if s.AppID != "" && s.SecretEnc != "" {

@@ -91,3 +91,44 @@ func TestFeishuQuotedPictureGoneStillSends(t *testing.T) {
 		t.Fatalf("images %v", imgs)
 	}
 }
+
+// A quoted or forwarded message read back carries its own mentions: an @ in it reaches the model as the person's name,
+// not as the message's @_user_N key.
+func TestFeishuQuoteAndForwardNameTheirMentions(t *testing.T) {
+	mentions := []map[string]any{{"key": "@_user_1", "name": "Alice"}}
+	t.Run("quote", func(t *testing.T) {
+		f, s := quoteHub(t, func(json.RawMessage) (any, error) { return nil, errors.New("no media") })
+		f.answerApp(AppFeishu, FeishuMessages, func(json.RawMessage) (any, error) {
+			return map[string]any{"items": []map[string]any{{"message_id": "om_pic", "msg_type": "text", "mentions": mentions,
+				"sender": map[string]any{"id": "ou_a", "sender_type": "user"}, "body": map[string]any{"content": `{"text":"@_user_1 please check"}`}}}}, nil
+		})
+		ev := quoteReply()
+		content := feishubot.ParseContent(ev.Message.MessageType, ev.Message.Content, nil)
+		if err := s.botSend(context.Background(), ev, content, botTarget{Kind: targetMain}); err != nil {
+			t.Fatal(err)
+		}
+		if text := sendOnceText(f); !strings.Contains(text, "@Alice please check") || strings.Contains(text, "@_user_1") {
+			t.Fatalf("text %q", text)
+		}
+	})
+	t.Run("forward", func(t *testing.T) {
+		f, s := quoteHub(t, func(json.RawMessage) (any, error) { return nil, errors.New("no media") })
+		f.answerApp(AppFeishu, FeishuMessages, func(json.RawMessage) (any, error) {
+			return map[string]any{"items": []map[string]any{
+				{"message_id": "om_fwd", "msg_type": "merge_forward", "body": map[string]any{"content": "Merged and Forwarded Message"}},
+				{"message_id": "om_in", "upper_message_id": "om_fwd", "msg_type": "text", "create_time": "100000", "mentions": mentions,
+					"sender": map[string]any{"id": "ou_a", "sender_type": "user"}, "body": map[string]any{"content": `{"text":"@_user_1 please check"}`}},
+			}}, nil
+		})
+		var ev feishubot.MessageEvent
+		ev.Message.MessageID, ev.Message.ChatType, ev.Message.MessageType = "om_fwd", "p2p", "merge_forward"
+		ev.Message.Content = `{"content":"Merged and Forwarded Message"}`
+		content := feishubot.ParseContent(ev.Message.MessageType, ev.Message.Content, nil)
+		if err := s.botSend(context.Background(), &ev, content, botTarget{Kind: targetMain}); err != nil {
+			t.Fatal(err)
+		}
+		if text := sendOnceText(f); !strings.Contains(text, "@Alice please check") || strings.Contains(text, "@_user_1") {
+			t.Fatalf("text %q", text)
+		}
+	})
+}

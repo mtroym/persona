@@ -195,6 +195,11 @@ var leadingTagRe = lazyre.New(`^<([A-Za-z][\w.]*[-_][\w.-]*)(?:\s+[\w:.-]+="[^"]
 // closing tag, or to the end when a clip cut it off. Persona's own blocks are gone already (StripInjected).
 func dropLeadingBlocks(s string) string {
 	for {
+		// Most titles start with words: skip the regexp for them, it allocates on every call (the session lists title
+		// every row, #2371).
+		if !strings.HasPrefix(s, "<") {
+			return s
+		}
 		m := leadingTagRe.FindStringSubmatchIndex(s)
 		if m == nil {
 			return s

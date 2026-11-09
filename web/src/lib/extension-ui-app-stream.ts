@@ -7,7 +7,7 @@ import type { Interaction } from "./types";
 import { canTryUIStream } from "./extension-ui-stream-gate";
 export type NativePagePermission = Interaction & { manager?: string };
 
-export { canTryUIStream, UI_STREAM_FEATURE } from "./extension-ui-stream-gate";
+export { canTryUIStream } from "./extension-ui-stream-gate";
 type Waiting = { request: UIStreamRequest; action?: Action; resolve: (accepted?: boolean) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout>; receipt?: UIStreamReceipt };
 export interface AppStreamChannel {
   send(request: UIStreamRequest): void;

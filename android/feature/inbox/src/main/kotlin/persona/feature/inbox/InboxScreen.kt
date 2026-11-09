@@ -269,6 +269,8 @@ fun InboxScreen(repository: InboxRepository, navigator: Navigator, onOpenCard: (
             }
             // New items waiting outside the list for triage (#1773): one line over the first item until triage is ok.
             InboxTriageText.banner(res, snapshot.triage)?.let { banner -> item("triage") { InboxTriageNotice(banner) } }
+            // Sources the hub could not read this round (#1849): what they show is the last round's.
+            InboxTriageText.unread(res, snapshot.triage)?.let { text -> item("triage-unread") { InboxUnreadNotice(text) } }
             if (loadingFirst) item("loading") { JLoading(text = stringResource(R.string.inbox_loading)) }
             if (!failedEmpty) (error ?: snapshot.error?.takeIf { feedback == null || connection == ConnectionState.Online })?.let { message ->
                 item("error") { StatusText(message, isError = true) }

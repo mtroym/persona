@@ -16,7 +16,7 @@ import (
 )
 
 // The knowledge base is the assistant's (internal/assistant kb*.go, its own tests there); these are the hub's ends:
-// the tools, the routes and the hub's features reaching it over the bus, the sources it reads through the hub.
+// the tools and the routes the hub relays to it.
 
 // testKBs are the knowledge bases the tests' assistants keep, by hub (dialAssistant passes them on).
 var testKBs sync.Map
@@ -42,9 +42,8 @@ func withKB(t *testing.T, h *Hub) *kb.Engine {
 	return &kb.Engine{Store: st, Owner: "我"}
 }
 
-// The kb_* tools, the assistant's, on its knowledge base: written, listed, read (a project by its name), searched;
-// the hub's features read it over the bus: the inbox agent's context, the projects of a directory for the triage.
-func TestKBToolsAndTheHubsReads(t *testing.T) {
+// The kb_* tools, the assistant's, on its knowledge base: written, listed, read (a project by its name), searched.
+func TestKBTools(t *testing.T) {
 	h := newTestHub(t)
 	e := withKB(t, h)
 	c := &kb.Chat{ID: kb.ChatID("lark", "f1"), Source: "lark", SourceID: "f1", Kind: "group", Name: "发布群", Created: time.Now()}
@@ -72,14 +71,6 @@ func TestKBToolsAndTheHubsReads(t *testing.T) {
 	if out := tool("kb_search", `{"query":"灰度"}`); !strings.Contains(out, "messages/") {
 		t.Fatalf("search: %q", out)
 	}
-
-	// The triage's projects of a directory: that machine's only.
-	if got := h.kbProjectNames(context.Background(), "server", "/code/persona/server"); len(got) != 1 || got[0] != "Persona 发布" {
-		t.Fatalf("dir match: %v", got)
-	}
-	if got := h.kbProjectNames(context.Background(), "laptop", "/code/persona"); len(got) != 0 {
-		t.Fatalf("other machine matched: %v", got)
-	}
 }
 
 // Without a knowledge base the assistant's kb_* tools say it is off.
@@ -93,7 +84,7 @@ func TestKBToolsWithoutAKnowledgeBase(t *testing.T) {
 }
 
 // The apps' /api/v1/kb routes are relayed to the assistant with the shapes they had; while it is not connected they
-// answer 503 assistant_offline, and the hub's own reads go without.
+// answer 503 assistant_offline.
 func TestKBRoutesRelayed(t *testing.T) {
 	h := newTestHub(t)
 	withKB(t, h)
@@ -122,9 +113,6 @@ func TestKBRoutesRelayed(t *testing.T) {
 	eventually(t, 5*time.Second, "the hub sees the assistant gone", func() bool { return h.busConnOf(assistantwire.AssistantID) == nil })
 	if code, out := call(t, mux, "GET", "/api/v1/kb/projects", tok, ""); code != 503 || out["code"] != assistantwire.CodeAssistantOffline {
 		t.Fatalf("while the assistant is away: %d %v", code, out)
-	}
-	if got := h.kbProjectNames(context.Background(), "server", "/code"); got != nil {
-		t.Fatalf("project names while away: %v", got)
 	}
 }
 

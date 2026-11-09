@@ -37,7 +37,9 @@ The sandbox covers only the processes Persona starts in it. These reach the secr
   daemons, botmux, sessions Herdr App or Orca open themselves, the Codex desktop app.
 - **Starts this version does not wrap**: an agent started in herdr or Orca, or resumed after herdr restarts, by a
   launcher other than `personad launch` (plain `claude`, a `~/.zshrc` alias or function); Codex conversations on the
-  assistant; a plain `codex` (see "A start is wrapped only when the agent's own sandbox is surely off").
+  assistant; a plain `codex` (see "A start is wrapped only when the agent's own sandbox is surely off"). While the
+  switch is on, the node records each such herdr or Orca start as `skipped` under `pane`, so the doctor warns; a later
+  start there through a managed launcher clears it.
 - **Code that runs later outside the sandbox**: files an agent writes for another program to run (shell startup
   files, LaunchAgents, git hooks), and programs outside the sandbox it can drive (`open`, `osascript`, `launchctl`,
   herdr's or tmux's sockets, `ssh localhost`).
@@ -142,8 +144,9 @@ readable.
 ## The switch is a file in the data directory
 
 Turn it on or off for every process on the machine with the file, then start the agent again; running agents keep how
-they started. Before you turn it on: it does not stop Docker (see "Some ways to the secrets stay open"), and `ps`, `top`
-and `sudo` stop working in agents. `personad node doctor` repeats both while it is on.
+they started. Before you turn it on: it does not stop Docker (see "Some ways to the secrets stay open"), it does not
+cover agents started in herdr or Orca without a managed launcher, and `ps`, `top` and `sudo` stop working in agents.
+`personad node doctor` repeats all three while it is on.
 
 ```sh
 touch ~/.persona/agent-sandbox.on   # on (use PERSONA_HOME's directory for a custom root)

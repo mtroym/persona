@@ -403,6 +403,15 @@ type Item struct {
 // At is when the message was sent.
 func (it Item) At() time.Time { return msTime(it.CreateTime) }
 
+// MentionList is the message's mentions, for ParseContent to turn its @_user_N keys back into names.
+func (it Item) MentionList() []Mention {
+	var out []Mention
+	for _, m := range it.Mentions {
+		out = append(out, Mention{Key: m.Key, Name: m.Name})
+	}
+	return out
+}
+
 func (c *Client) Message(ctx context.Context, messageID string) ([]Item, error) {
 	var out struct {
 		Items []Item `json:"items"`
@@ -443,7 +452,9 @@ func (c *Client) Resource(ctx context.Context, messageID, key, kind string, limi
 			return nil, "", err
 		}
 		ct := resp.Header.Get("Content-Type")
-		if resp.StatusCode != http.StatusOK || strings.HasPrefix(ct, "application/json") {
+		// Only a non-200 answer is an error. A 200 is the file whatever its type (a .json file the user sent comes
+		// labeled application/json), as in the official SDK, which never reads a 200 download as an error.
+		if resp.StatusCode != http.StatusOK {
 			var env struct {
 				Code int    `json:"code"`
 				Msg  string `json:"msg"`

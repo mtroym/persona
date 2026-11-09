@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// A market extension's auto-upgrade switch (docs/extensions/extensions.md "Auto-upgrade"): switched off, the extension is not
-// upgraded, so its switch shows off and greyed out, whatever its own setting the hub keeps for when it is on again.
+// A market extension's auto-upgrade switch shows its saved preference even while execution is paused.
+// Turning the extension off disables the control without disguising the preference as off.
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -57,7 +57,7 @@ describe("auto-upgrade switch", () => {
   it.each([
     { name: "on, its switch on", enabled: true, own: true, paused: undefined, checked: "true", greyed: false, footer: "扩展空闲时自动装上" },
     { name: "on, its switch off", enabled: true, own: false, paused: undefined, checked: "false", greyed: false, footer: "扩展空闲时自动装上" },
-    { name: "off, its switch on", enabled: false, own: true, paused: "disabled", checked: "false", greyed: true, footer: "恢复你原来的自动升级设置" },
+    { name: "off, its switch on", enabled: false, own: true, paused: "disabled", checked: "true", greyed: true, footer: "恢复你原来的自动升级设置" },
     { name: "off, its switch off", enabled: false, own: false, paused: "disabled", checked: "false", greyed: true, footer: "恢复你原来的自动升级设置" },
   ])("$name", async ({ enabled, own, paused, checked, greyed, footer }) => {
     detail = { ...BASE, enabled, status: enabled ? "running" : "disabled", auto_upgrade: own, auto_upgrade_paused: paused };

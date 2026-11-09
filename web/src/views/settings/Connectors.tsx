@@ -86,6 +86,7 @@ function Mail() {
   return (
     <>
       <Group
+        anchor="mail"
         title={
           <span className="flex items-center gap-2">
             {t("settings-connectors.mail")}
@@ -470,6 +471,7 @@ function Feishu() {
 
   return (
     <Group
+      anchor="lark"
       title={t("settings-connectors.lark")}
       footer={st?.configured === false ? t("settings-connectors.lark_footer_unconfigured") : t("settings-connectors.lark_footer")}
     >

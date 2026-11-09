@@ -45,6 +45,7 @@ func TestUIConforms(t *testing.T) {
 		t.Fatal(err)
 	}
 	drawn := map[string]extension.UIParams{}
+	versions := map[int]bool{}
 	prog := serve.Program{ID: "example-usage", Version: "0.1.0",
 		Namespaces: map[string]serve.Handler{"ui": func(_ context.Context, method string, params json.RawMessage) (any, error) {
 			var p extension.UIParams
@@ -55,7 +56,10 @@ func TestUIConforms(t *testing.T) {
 			if !slices.Contains([]string{"usage", "today", "gpu"}, p.Contribution) {
 				return nil, serve.NoContribution(p.Contribution)
 			}
-			drawn[p.Contribution] = p
+			if _, ok := drawn[p.Contribution]; !ok {
+				drawn[p.Contribution] = p // the first: for this hub's UI version
+			}
+			versions[p.UIVersion] = true
 			chart := extension.UIElem{Type: "chart", Kind: "bar", Unit: "tokens", Series: []extension.ChartSeries{{Points: []extension.ChartPoint{{Label: "一", Value: 1}}}}}
 			return extension.View{RefreshAfter: 300, Sections: []extension.Section{{Items: []extension.UIElem{
 				{Type: "stat_grid", Stats: []extension.Stat{{Label: "今天", Value: "1.2M"}}}, chart}}}}, nil
@@ -64,6 +68,10 @@ func TestUIConforms(t *testing.T) {
 	if drawn["today"].Size != extension.SizeCompact || drawn["usage"].Size != extension.SizeFull || drawn["gpu"].Machine == nil ||
 		drawn["usage"].TZ == "" || drawn["usage"].UIVersion != extension.UIVersion {
 		t.Fatalf("%+v", drawn)
+	}
+	// and drawn again for an app of the version before
+	if !versions[extension.UIVersion] || !versions[extension.UIVersion-1] {
+		t.Fatalf("drawn for UI versions %v", versions)
 	}
 }
 

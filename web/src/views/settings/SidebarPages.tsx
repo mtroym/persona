@@ -27,6 +27,7 @@ export function SidebarPagesGroup() {
 
   return (
     <Group
+      anchor="sidebar-pages"
       title={t("settings.sidebar_pages")}
       footer={t("settings.sidebar_pages_footer", { cap: EXTENSION_CAP })}
       right={changed ? <Button tone="quiet" onClick={resetSidebarPrefs} className="-mb-1 h-6 px-2 text-[11.5px]">{t("settings.sidebar_pages_reset")}</Button> : undefined}

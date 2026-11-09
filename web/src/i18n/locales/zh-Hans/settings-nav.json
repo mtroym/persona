@@ -13,8 +13,6 @@
   "tab_translate": "翻译",
   "tab_shortcuts": "快捷键",
   "tab_devices": "设备",
-  "group_general": "基本",
-  "group_models": "模型和 Agent",
   "group_connections": "连接",
   "hint_general": "外观、导航和翻译",
   "hint_notifications": "什么时候弹通知、响提示音",
@@ -28,5 +26,8 @@
   "tab_managers": "管理者",
   "hint_managers": "各个助手跑在哪、在不在线",
   "tab_sent": "以你的名义发出",
-  "hint_sent": "以你的名义发出过什么、为什么放行"
+  "hint_sent": "以你的名义发出过什么、为什么放行",
+  "group_personal": "个人",
+  "group_assistant": "助手",
+  "group_system": "系统"
 }

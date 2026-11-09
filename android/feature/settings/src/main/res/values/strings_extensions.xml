@@ -254,7 +254,7 @@
     <string name="settings_ext_token_removed">Token removed</string>
     <string name="settings_ext_token_changed">Token changed</string>
     <string name="settings_ext_remove_market_title">Remove %1$s?</string>
-    <string name="settings_ext_remove_market_text">The hub stops reading this market. Extensions installed from it stay.</string>
+    <string name="settings_ext_remove_market_text">The hub stops reading this market. Extensions installed from it stay, but stop upgrading until the market is added again with the same address.</string>
     <string name="settings_ext_remove">Remove</string>
     <string name="settings_ext_market_removed">Market removed</string>
     <string name="settings_ext_market_address">Address</string>
@@ -284,6 +284,8 @@
     <string name="settings_ext_upgrade_title">Upgrades</string>
     <string name="settings_ext_upgrade_footer">When the market has a new version, it\'s installed while the extension is idle. If it asks for more permissions, you\'re asked first. A version that fails to start rolls back to the previous one.</string>
     <string name="settings_ext_upgrade_paused_footer">Auto-upgrade is paused while this extension is off. Turn the extension back on and your auto-upgrade setting applies again.</string>
+    <string name="settings_ext_upgrade_market_removed_footer">Its market was removed, so it no longer upgrades. Add the market again with the same address to get its upgrades back.</string>
+    <string name="settings_ext_upgrade_paused_other_footer">Auto-upgrade is paused for this extension for now.</string>
     <string name="settings_ext_auto_upgrade">Auto-upgrade</string>
     <string name="settings_ext_new_version">New version %1$s</string>
     <string name="settings_ext_auto_upgrade_on">Auto-upgrade on</string>

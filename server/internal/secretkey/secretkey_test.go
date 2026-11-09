@@ -1,6 +1,7 @@
 package secretkey
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -148,4 +149,24 @@ func mustFresh(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	return k
+}
+
+// A derived key is the same for the same purpose, differs between purposes and from the box's own key, and survives
+// a new Box on the same file.
+func TestDerive(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "secret.key")
+	b := New(path)
+	a1, err := b.Derive("persona extension image v1", 32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a2, _ := New(path).Derive("persona extension image v1", 32)
+	other, _ := b.Derive("something else", 32)
+	key, _ := b.Key()
+	if !bytes.Equal(a1, a2) || bytes.Equal(a1, other) || bytes.Equal(a1, key) || len(a1) != 32 {
+		t.Fatalf("derived %x %x %x", a1, a2, other)
+	}
+	if _, err := b.Derive("", 32); err == nil {
+		t.Fatal("no purpose taken")
+	}
 }

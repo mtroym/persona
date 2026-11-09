@@ -68,6 +68,9 @@ export interface Page {
   render(req: UIRequest): wire.View | Promise<wire.View>;
   /** Nothing (or an empty result) draws the page again, with req.state as the action left it. */
   action?(req: UIRequest): wire.ActionResult | void | Promise<wire.ActionResult | void>;
+  /** Serves a picture the page drew by ref (UI version 6: an image's src, a row's thumbnail or avatar, a tile's
+   * image), fetched by the hub for the apps: image() makes the answer. Absent answers unknown_method. */
+  image?(req: ImageRequest): wire.UIImage | Promise<wire.UIImage>;
 }
 
 /** A ui.render or ui.action, and the hub to call while drawing. */
@@ -77,6 +80,11 @@ export interface UIRequest extends wire.UIParams {
   transport?: "snapshot" | "stream";
   /** Mounted root factory lifetime; disposal or suspension aborts pending preparation. */
   signal?: AbortSignal;
+}
+
+/** A ui.image: the ref, the contribution that drew it, the pixel width the app wants (0: any), and the hub to call. */
+export interface ImageRequest extends wire.UIImageParams {
+  hub: Hub;
 }
 
 /** A shortcut.run: its params' values (strings), for whom; and the hub to call while running. */
@@ -157,6 +165,73 @@ export function decodeState<T>(req: { state?: string }, fallback: T): T {
 
 /** Writes a page's state (at most 16 KB). */
 export const encodeState = (v: unknown) => JSON.stringify(v);
+
+/** What ui.image answers for a picture's bytes: the type (read from the bytes when mime is ""), and how long the hub
+ * may keep it in seconds (a camera 5 to 10, a map 30, a still 86400; 0 not at all). */
+export const image = (mime: string, bytes: Uint8Array, maxAge = 60): wire.UIImage => ({
+  mime: mime || imageType(bytes),
+  data: imageBase64(bytes),
+  max_age: Math.min(Math.max(maxAge, 0), 86400),
+});
+
+function imageBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let at = 0; at < bytes.length; at += 8192) binary += String.fromCharCode(...bytes.subarray(at, at + 8192));
+  return btoa(binary);
+}
+
+// imageType reads a picture's type from its bytes, as the hub does (http.DetectContentType on the Go side).
+function imageType(bytes: Uint8Array): string {
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return "image/gif";
+  if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return "image/webp";
+  return "application/octet-stream";
+}
+
+/** Readers for what an action carries (req.values) as UI version 6 writes it: a switch "true"/"false", a slider's or a
+ * stepper's number, a date YYYY-MM-DD, a time HH:MM, a datetime YYYY-MM-DDTHH:MM (the user's wall clock; req.tz is
+ * their zone), a multichoice a JSON array. The hub turns what an older app sends into the same. */
+export const values = {
+  /** A switch's or a toggle's value: true for "true" only. */
+  bool(req: UIRequest, name: string): boolean { return req.values?.[name] === "true"; },
+  /** A slider's, a stepper's or a number field's value; throws when it is missing or not a number. */
+  number(req: UIRequest, name: string): number {
+    const s = req.values?.[name]?.trim();
+    if (!s) throw new Error(`${name}: no value`);
+    const n = Number(s);
+    if (!Number.isFinite(n)) throw new Error(`${name}: not a number: ${JSON.stringify(s)}`);
+    return n;
+  },
+  /** A date field's calendar day (YYYY-MM-DD). */
+  date(req: UIRequest, name: string): { year: number; month: number; day: number } {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(req.values?.[name] ?? "");
+    if (!m) throw new Error(`${name}: a date YYYY-MM-DD, not ${JSON.stringify(req.values?.[name])}`);
+    return { year: +m[1], month: +m[2], day: +m[3] };
+  },
+  /** A time field's hour and minute (HH:MM, 24 hours). */
+  time(req: UIRequest, name: string): { hour: number; minute: number } {
+    const m = /^(\d{2}):(\d{2})$/.exec(req.values?.[name] ?? "");
+    if (!m) throw new Error(`${name}: a time HH:MM, not ${JSON.stringify(req.values?.[name])}`);
+    return { hour: +m[1], minute: +m[2] };
+  },
+  /** A datetime field's wall clock (YYYY-MM-DDTHH:MM) in the user's zone (req.tz). */
+  datetime(req: UIRequest, name: string): { year: number; month: number; day: number; hour: number; minute: number } {
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(req.values?.[name] ?? "");
+    if (!m) throw new Error(`${name}: a datetime YYYY-MM-DDTHH:MM, not ${JSON.stringify(req.values?.[name])}`);
+    return { year: +m[1], month: +m[2], day: +m[3], hour: +m[4], minute: +m[5] };
+  },
+  /** A multichoice's chosen values; [] when it is empty or not a JSON array of strings. */
+  multi(req: UIRequest, name: string): string[] {
+    try {
+      const v = JSON.parse(req.values?.[name] ?? "[]");
+      return Array.isArray(v) && v.every((x) => typeof x === "string") ? v : [];
+    } catch {
+      return [];
+    }
+  },
+};
 
 const PUSH_PREFIX = "ext.push.";
 
@@ -368,7 +443,15 @@ export function connect(prog: Program, write: Write) {
     return v;
   }
 
+  async function serveImage(params: wire.UIImageParams): Promise<unknown> {
+    const page = prog.ui?.[params.contribution];
+    if (!page || isComponentPage(page)) throw noContribution(params.contribution);
+    if (!page.image) throw unknownMethod("ui.image");
+    return page.image({ ...params, hub });
+  }
+
   async function ui(method: string, params: wire.UIParams): Promise<unknown> {
+    if (method === "image") return serveImage(params as unknown as wire.UIImageParams); // ui.image carries UIImageParams
     if (method !== "render" && method !== "action") throw unknownMethod(`ui.${method}`);
     const page = prog.ui![params.contribution];
     if (!page) throw noContribution(params.contribution);

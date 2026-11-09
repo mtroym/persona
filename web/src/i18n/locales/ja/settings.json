@@ -146,5 +146,9 @@
   "sync_footer": "各コンピューターが今回リストを返したかどうか。応答しなかったものは前回の結果を表示し、プロバイダーに印を付けます。",
   "stale": "{machines} は未更新",
   "stale_mark": "未更新",
-  "launchers_failed": "プロバイダーの一覧を取得できませんでした：{error}"
+  "launchers_failed": "プロバイダーの一覧を取得できませんでした：{error}",
+  "search_settings": "設定を検索",
+  "search_in_page": "このページ内",
+  "search_no_results": "一致する設定がありません",
+  "search_placeholder_settings": "設定を検索"
 }

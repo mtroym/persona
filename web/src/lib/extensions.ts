@@ -1,6 +1,6 @@
-// Settings › Extensions (docs/extensions/extensions.md "The hub's API" and "App: Settings › Extensions", iOS ExtensionsModel): the hub's extensions, each one's
-// switch, its configuration as a form drawn from its schema (`form.fields`), and its secrets, write-only. Installing,
-// upgrading and removing happen on the hub's machine (`personad extension`), never here.
+// Manager-owned extension metadata and settings APIs (docs/extensions/extension-settings.md).
+// Configuration is schema-backed and secrets are write-only. Lifecycle management is host-owned;
+// market installation and consent flows live in extension-market.ts.
 import { api, ApiError, enc } from "./api";
 import type { Machine } from "./types";
 import { placeOf, type UIPlace } from "./extension-ui";
@@ -10,6 +10,7 @@ import { EXTENSIONS_CHANGED } from "./extension-prompts";
 import type { Contribution, DependencyState, PackMember } from "./extension-model";
 import type { ExtensionAuth, ExtensionTool } from "./extension-auth";
 import { clock } from "./format";
+import { itemHeaders } from "./manager-choice";
 import { t } from "../i18n";
 
 export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
@@ -233,8 +234,8 @@ export const setContribution = (id: string, point: string, cid: string, enabled:
 export const setExtensionAutoUpgrade = (id: string, auto: boolean) =>
   api<HubExtensionDetail>(`${base(id)}/auto-upgrade`, { method: "PUT", json: { auto } }).then(detailOf);
 /** The auto-upgrade switch for all market extensions; a hub from before it has no route (null). */
-export const extensionUpgrades = () =>
-  api<{ auto: boolean; upgrades?: ExtensionUpgrade[] }>(`${extRoot()}/-/upgrades`).then((r) => r.auto, () => null);
+export const extensionUpgrades = (manager?: string) =>
+  api<{ auto: boolean; upgrades?: ExtensionUpgrade[] }>(`${extRoot()}/-/upgrades`, { headers: itemHeaders(manager) }).then((r) => r.auto, () => null);
 export const setExtensionUpgrades = (auto: boolean) => api<{ auto: boolean }>(`${extRoot()}/-/upgrades`, { method: "PUT", json: { auto } }).then((r) => r.auto);
 export const setExtensionConfig = (id: string, config: JsonObject) =>
   api<HubExtensionDetail>(`${base(id)}/config`, { method: "PUT", json: { config } }).then(detailOf).then(changed);

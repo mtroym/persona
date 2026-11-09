@@ -15,6 +15,16 @@ type Page struct {
 	// submits). Nil, or an empty result, draws the page again. UI version 5: a result with Lines, or with Items (an
 	// empty but non-nil Items says done, nothing to draw: a viewed mark), is the answer as it is.
 	Action func(ctx context.Context, r *UIRequest) (*wire.ActionResult, error)
+	// Image serves a picture the page drew by ref (UI version 6: an image's src, a row's thumbnail or avatar, a
+	// tile's image), fetched by the hub for the apps: Image and ImageFile make the answer. Nil answers unknown_method.
+	Image func(ctx context.Context, r *ImageRequest) (*wire.UIImage, error)
+}
+
+// ImageRequest is a ui.image: the ref, the contribution that drew it, the pixel width the app wants (0: any), and
+// the hub to call.
+type ImageRequest struct {
+	wire.UIImageParams
+	Hub *Hub
 }
 
 // UIRequest is a ui.render or ui.action: wire.UIParams, and the hub to call while drawing (gateway.http …).
@@ -41,6 +51,9 @@ func EncodeState(v any) string {
 }
 
 func (s *server) ui(ctx context.Context, method string, raw json.RawMessage) (any, error) {
+	if method == "image" {
+		return s.image(ctx, raw)
+	}
 	r := &UIRequest{Hub: s.hub}
 	if err := json.Unmarshal(raw, &r.UIParams); err != nil {
 		return nil, &Error{Code: "invalid", Message: err.Error()}
@@ -94,4 +107,19 @@ func (s *server) ui(ctx context.Context, method string, raw json.RawMessage) (an
 		return wire.ActionResult{View: v}, nil
 	}
 	return nil, UnknownMethod("ui." + method)
+}
+
+func (s *server) image(ctx context.Context, raw json.RawMessage) (any, error) {
+	r := &ImageRequest{Hub: s.hub}
+	if err := json.Unmarshal(raw, &r.UIImageParams); err != nil {
+		return nil, &Error{Code: "invalid", Message: err.Error()}
+	}
+	page, ok := s.prog.UI[r.Contribution]
+	if !ok {
+		return nil, NoContribution(r.Contribution)
+	}
+	if page.Image == nil {
+		return nil, UnknownMethod("ui.image")
+	}
+	return page.Image(ctx, r)
 }

@@ -22,8 +22,7 @@ import (
 // now, and only came once a tool call did. A run that already has one (made before this version) still shows a turn
 // as an agent message (feishubot's message_cot): its process (thinking, what the conversation says between its tool
 // calls, the calls and their output) added as it goes, finished when the turn ends; the answer then goes out as a
-// card of its own below it. When an append fails, the run goes on in its progress card. cotStart, hasProcess and cotOff are
-// unused now and kept until #2857 (which touches them) is in, then removed.
+// card of its own below it. When an append fails, the run goes on in its progress card.
 //
 // The run's Ext keeps "cot" and "cot_msg" (the agent message's ids, shared by its events as the run id) and
 // "cot_para" (the last paragraph, which the next tool calls hang under and the process ends with); "cot_off" marks a
@@ -70,18 +69,8 @@ func (s *Service) loadCot(p *cotProgress, r *channel.Run) {
 			}
 		}
 	}
-	// The bot-wide refusal only keeps a run from starting one: an agent message already open is finished as usual.
 	// A run answering in a topic has none: the hub makes the agent message in the owner's private chat only.
-	p.off = p.off || s.runExt(r, "cot_off") != "" || s.runExt(r, "chat") != "" || p.cot == "" && s.cotUnavailable()
-}
-
-// cotUnavailable: Feishu refused this bot an agent message since the assistant started (the app lacks the
-// permission, the tenant does not have it): turns go to the progress card from their start, words-only ones too.
-func (s *Service) cotUnavailable() bool {
-	b := &s.fbot
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.cotOff
+	p.off = p.off || s.runExt(r, "cot_off") != "" || s.runExt(r, "chat") != ""
 }
 
 // runExt is one of a run's channel values, read under the channels' lock (a held run's next turn clears them).
@@ -120,38 +109,6 @@ func (f feishuSink) progressAfter(*channel.Run) time.Duration {
 // cotCall is a call of the hub's Feishu transport for agent messages.
 func (s *Service) cotCall(ctx context.Context, method string, params map[string]any) error {
 	return s.appCall(ctx, AppFeishu, method, params, nil)
-}
-
-// cotStart creates r's agent message; false (and the run marked) when Feishu refuses it.
-func (f feishuSink) cotStart(ctx context.Context, r *channel.Run, p *cotProgress) bool {
-	s := f.s
-	var res struct {
-		CotID     string `json:"cot_id"`
-		MessageID string `json:"message_id"`
-	}
-	if err := s.appCall(ctx, AppFeishu, FeishuCotCreate, map[string]any{"reply_to": r.ReplyTo}, &res); err != nil || res.CotID == "" {
-		if errors.Is(err, bus.ErrOffline) {
-			return false // not sent (the hub is not connected): tried again on the next look
-		}
-		// Refused for this bot: every later turn goes to the progress card. Anything else (a rate limit, a busy
-		// server, a reply that did not come back, which may have created one after all): this turn does.
-		if cotRefused(err) {
-			s.fbot.mu.Lock()
-			s.fbot.cotOff = true
-			s.fbot.mu.Unlock()
-			s.logf("bots: agent messages refused (%v); turns go to the progress card, the process folded into it", err)
-		} else {
-			s.logf("bots: agent message not created (%v); this turn goes to the progress card", err)
-		}
-		s.setCotExt(r, "cot_off", "1")
-		p.off = true
-		return false
-	}
-	p.cot, p.msg = res.CotID, res.MessageID
-	s.setCotExt(r, "cot", res.CotID)
-	s.setCotExt(r, "cot_msg", res.MessageID)
-	s.rememberBotThread(res.MessageID, botTargetOf(r), r.Label)
-	return true
 }
 
 // cotEvents turns the new items of a run's process into events (words held back until a tool call follows them: the
@@ -390,16 +347,6 @@ func (f feishuSink) cotEnd(ctx context.Context, cot, msg string) error {
 		}
 	}
 	return err
-}
-
-// hasProcess: a turn has something to show besides its answer (thinking, a tool call).
-func hasProcess(items []proto.Item) bool {
-	for _, it := range items {
-		if it.Kind == proto.KindThinking || it.Kind == proto.KindToolUse {
-			return true
-		}
-	}
-	return false
 }
 
 // Folded panel limits: newest calls shown, per-line rune cap (escape entities kept whole), own JSON byte budget.

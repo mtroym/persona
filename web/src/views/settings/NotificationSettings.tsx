@@ -84,7 +84,7 @@ export function NotificationSettings() {
 
   return (
     <>
-      <Group title={t("settings-notifications.system_title")} footer={system.permission === "denied" ? t("settings-notifications.system_denied") : t("settings-notifications.system_footer")}>
+      <Group title={t("settings-notifications.system_title")} anchor="system" footer={system.permission === "denied" ? t("settings-notifications.system_denied") : t("settings-notifications.system_footer")}>
         <Row icon="bell" label={t("settings-notifications.system")} hint={permissionHint(system.permission, system.on)}>
           {system.permission === "denied" && <Pill tone="orange">{t("settings-notifications.denied_pill")}</Pill>}
           <Switch
@@ -125,7 +125,7 @@ export function NotificationSettings() {
             </Row>
           </Group>
 
-          <Group title={t("settings-notifications.done_title")} footer={t("settings-notifications.done_footer", { long })}>
+          <Group title={t("settings-notifications.done_title")} anchor="done" footer={t("settings-notifications.done_footer", { long })}>
             <div role="radiogroup" aria-label={t("settings-notifications.done_title")} className="divide-y divide-line">
               {DONE.map((o) => {
                 const on = prefs.done === o.v;

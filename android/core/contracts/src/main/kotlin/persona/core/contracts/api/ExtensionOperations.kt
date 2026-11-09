@@ -36,6 +36,8 @@ data class ExtensionOperation(
     val preview: ExtensionPreview? = null,
     /** What the user should do once it succeeded: `auth` (#4507) when the extension signs in and is not signed in yet. */
     val next: String? = null,
+    /** The manager whose it is, from its push (pushManager); null in a list, which is the default manager's. */
+    val manager: String? = null,
 ) {
     val active: Boolean get() = state == Running || state == NeedsConsent
     val failed: Boolean get() = state == Failed

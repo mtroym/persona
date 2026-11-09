@@ -106,10 +106,6 @@ export function byAttention(a: Session, b: Session): number {
   return (tb ?? "").localeCompare(ta ?? "") || a.session_id.localeCompare(b.session_id) || a.machine_id.localeCompare(b.machine_id);
 }
 
-export function isLive(s: Session) {
-  return stateOf(s) !== "offline";
-}
-
 /** Why it waits for you, in its host's words (a botmux attention), while it needs you; a reason left over from before
  *  (offline, seen) stays out. */
 export function attentionReason(s: Session): string | undefined {

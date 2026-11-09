@@ -27,7 +27,7 @@ const ROSTER = {
   ],
 };
 const DETAIL = {
-  id: "example-wechat", name: "示例微信", kind: "process", status: "running", source: "market:official", enabled: true,
+  id: "example-wechat", name: "示例微信", kind: "process", status: "running", source: "installed", origin: "market:official/example-wechat", enabled: true,
   contributes: { channel: ["wechat"], connectors: ["wechat"] },
   auto_upgrade: false, upgrade: { market: "official", id: "example-wechat", from: "1.0.0", to: "1.1.0", state: "off" },
 };

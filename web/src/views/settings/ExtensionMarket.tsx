@@ -604,7 +604,7 @@ export function PreviewDialog({ pv, managerName, onClose, onAgree }: { pv: Marke
 }
 
 /** Uninstalling an extension a market installed; its data can stay for a later install. */
-export function UninstallDialog({ id, name, pack, onClose, onDone }: { id: string; name: string; pack?: PackMember[]; onClose: () => void; onDone: () => void }) {
+export function UninstallDialog({ id, name, version, pack, onClose, onDone }: { id: string; name: string; version?: string; pack?: PackMember[]; onClose: () => void; onDone: () => void }) {
   const [members, setMembers] = useState(false);
   const [packMembers, setPackMembers] = useState(pack);
   useEffect(() => { if (!pack) void extensionDetail(id).then((d) => setPackMembers(d.extension_pack), () => {}); }, [id, pack]);
@@ -656,6 +656,7 @@ export function UninstallDialog({ id, name, pack, onClose, onDone }: { id: strin
           {warnings.map((warning, index) => <li key={index} className="rounded-control bg-orange-tint px-3 py-2 text-[12.5px] leading-relaxed whitespace-pre-wrap break-all text-orange">{warning}</li>)}
         </ul>
       </div> : <>
+      {version && <Row label={t("settings-extensions.version")} mono wrapValue>{version}</Row>}
       <p className="text-[12.5px] leading-relaxed text-ink-2">{t("settings-extensionmarket.uninstall_body")}</p>
       <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-control bg-inset px-3 py-2.5 shadow-hairline">
         <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} className="mt-0.5 size-3.5 shrink-0 accent-[var(--accent)]" />

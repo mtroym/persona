@@ -740,20 +740,20 @@ func TestEditHubJSONKeepsWhatItDoesNotKnow(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := editHubJSON(dir, func(o *jsonObject) error {
-		if err := o.set("name", "家里"); err != nil {
+		if err := o.Set("name", "家里"); err != nil {
 			return err
 		}
-		public, err := o.object("public")
+		public, err := o.Object("public")
 		if err != nil {
 			return err
 		}
-		if err := public.set("tls_listen", ":18662"); err != nil {
+		if err := public.Set("tls_listen", ":18662"); err != nil {
 			return err
 		}
-		o.setObject("public", public)
-		admin, _ := o.object("admin")
-		_ = admin.set("access", "loopback")
-		o.setObject("admin", admin)
+		o.SetObject("public", public)
+		admin, _ := o.Object("admin")
+		_ = admin.Set("access", "loopback")
+		o.SetObject("admin", admin)
 		return nil
 	})
 	if err != nil {
@@ -806,7 +806,7 @@ func TestEditHubJSONKeepsWhatItDoesNotKnow(t *testing.T) {
 	}
 	// Not an object: refused, the file stays as it was.
 	_ = os.WriteFile(path, []byte(`[1,2]`), 0o600)
-	if err := editHubJSON(dir, func(o *jsonObject) error { return o.set("x", 1) }); err == nil {
+	if err := editHubJSON(dir, func(o *jsonObject) error { return o.Set("x", 1) }); err == nil {
 		t.Fatal("edited a non-object")
 	}
 	if b, _ := os.ReadFile(path); string(b) != `[1,2]` {

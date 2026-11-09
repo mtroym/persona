@@ -1,8 +1,6 @@
-// Settings › Extensions (docs/extensions/extensions.md "App: Settings › Extensions", iOS ExtensionsView / ExtensionDetailView): the hub's extensions (built in,
-// from hub.json, installed on the hub's machine) and their states; an extension's page has its switch, its settings as a
-// form drawn from its schema (`form.fields`, saved as a whole), its secrets (typed in, never shown again), what it
-// contributes, what it may do and where it came from. An extension written in hub.json is only looked at here. Installing,
-// upgrading and removing are done on the hub's side (`personad extension` on its machine, or its admin UI at /admin).
+// Settings › Extensions: all sources use the host-owned layout in ExtensionSettingsPage.
+// This controller owns manager routing, configuration drafts, authentication and mutation results;
+// extensions supply only their configuration fields and custom content (docs/extensions/extension-settings.md).
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { enc, errorText } from "../../lib/api";
 import { defaultManager, pinManagerAt, useKnownDefault } from "../../lib/manager-choice";
@@ -11,13 +9,12 @@ import { isResumed } from "../../lib/reconnect";
 import { onHubEvent, useStore } from "../../lib/store";
 import { EXTENSIONS_CHANGED } from "../../lib/extension-prompts";
 import { operations, operationsListed, opOf, watchOperations } from "../../lib/extension-operations";
-import { marketOf, extensionsRoute, routeSub } from "../../lib/extension-market";
-import { ago } from "../../lib/format";
+import { extensionsRoute, routeSub } from "../../lib/extension-market";
 import { composing } from "../../lib/send-history";
 import {
   changed, checkError, choiceLabel, clearedSecrets, clearExtensionSecret, compact, configError, fieldLabel, fieldTitle, isDirty, listItems, listExtensionsInfo, listSummary, numberProblems,
   placeholder, extensionDetail, extensionState, extensionTone, pointText, readNumber, runNote, same, secretState, setAt, setContribution, setExtensionConfig, setExtensionEnabled,
-  channelOf, machineStatus, nodeProgramStatus, sandboxEgress, sandboxState, saveFooter, setExtensionAutoUpgrade, setExtensionSecret, sourceText, stateLine, upgradeAction, upgradeDetail, upgradeNote, valueAt,
+  channelOf, machineStatus, nodeProgramStatus, sandboxEgress, sandboxState, saveFooter, setExtensionAutoUpgrade, setExtensionSecret, sourceText, stateLine, valueAt,
   type HubExtension, type HubExtensionDetail, type Json, type JsonObject, type ExtensionField, type ExtensionNodeState, type ExtensionSandbox, type ExtensionSecret,
 } from "../../lib/extensions";
 import { Button, cx, Dialog, EASE, IconButton, Loading, Spinner, toast } from "../../ui/atoms";
@@ -25,12 +22,13 @@ import { TriageRuleField } from "../../ui/TriageRuleField";
 import { Icon } from "../../ui/icons";
 import { ChannelLink } from "./Channels";
 import { MarketCatalog, MarketItem, Markets, UninstallDialog } from "./ExtensionMarket";
+import { ExtensionSettingsPage } from "./ExtensionSettingsPage";
 import { ExtensionUI } from "./ExtensionView";
 import { ExtensionConnectorInbox } from "./HubConnector";
-import { getAuth, listAuthNote, onAuthChange, shownPages, signInAsked, takeSignIn, toolText, withAuth, type ExtensionAuth } from "../../lib/extension-auth";
+import { getAuth, listAuthNote, onAuthChange, shownPages, signInAsked, takeSignIn, withAuth, type ExtensionAuth } from "../../lib/extension-auth";
 import { AuthGroup } from "./ExtensionAuth";
 import { dependencyText, dependentError, type Contribution, type Dependent } from "../../lib/extension-model";
-import { Group, Pill, Row, Switch } from "./SettingsParts";
+import { Group, Pill, Row, Switch, SettingsHint } from "./SettingsParts";
 import { ManagerHeading } from "../ManagerParts";
 import { formatList, t } from "../../i18n";
 
@@ -216,7 +214,7 @@ function ExtensionList({ onOpen, onMarket, onMarkets }: { onOpen: (id: string) =
       </p>
       {/* Extension market first, above the installed list (#5017): where a phone or a browser gets another extension. */}
       {markets && (
-        <Group title={t("settings-extensions.market_title")} footer={t("settings-extensions.market_footer")}>
+        <Group title={t("settings-extensions.market_title")} footer={t("settings-extensions.market_footer")} anchor="market">
           <Row
             label={
               <span className="flex items-center gap-2">
@@ -238,6 +236,7 @@ function ExtensionList({ onOpen, onMarket, onMarkets }: { onOpen: (id: string) =
         </Group>
       )}
       <Group
+        anchor="extensions"
         title={
           <span className="flex items-center gap-2">
             {t("settings-extensions.title")}
@@ -320,43 +319,6 @@ function ExtensionList({ onOpen, onMarket, onMarkets }: { onOpen: (id: string) =
 /** A number field as typed, by dotted path, until it reads as one. */
 type Typed = Record<string, { text: string; integer: boolean }>;
 
-/**
- * A market extension's upgrades (docs/extensions/extensions.md "Auto-upgrade"): its own switch, its newer version (opening the market's
- * upgrade when it waits for the user) or what happened last. The App's "Upgrades" section.
- */
-function UpgradeGroup({ p, busy, onToggle, onUpgrade }: { p: HubExtension; busy: boolean; onToggle: (on: boolean) => void; onUpgrade: (market: string, id: string) => void }) {
-  const u = p.upgrade;
-  const note = !u && p.upgrade_note ? upgradeNote(p.upgrade_note) : null;
-  const action = u ? upgradeAction(u) : null;
-  // Switched off, the extension is not upgraded: its own switch shows off and waits (kept by the hub) until it is on.
-  const paused = !!p.auto_upgrade_paused;
-  const line = (title: string, detail: string, attention: boolean) => (
-    <div className="min-w-0 flex-1">
-      <div className="text-[13px] text-ink">{title}</div>
-      {detail && <div className={cx("mt-0.5 text-[11.5px] leading-snug", attention ? "text-orange" : "text-ink-3")}>{detail}</div>}
-    </div>
-  );
-  return (
-    <Group title={t("settings-extensions.upgrade_title")} footer={t(paused ? "settings-extensions.upgrade_paused_footer" : "settings-extensions.upgrade_footer")}>
-      <div className="flex items-center gap-3 px-4 py-2.5">
-        <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{t("settings-extensions.auto_upgrade")}</span>
-        <Switch on={!paused && (p.auto_upgrade ?? true)} onChange={onToggle} disabled={busy || paused} label={t("settings-extensions.auto_upgrade")} />
-      </div>
-      {u &&
-        (action ? (
-          <button type="button" onClick={() => onUpgrade(u.market, u.id)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-hover">
-            {line(t("settings-extensions.new_version", { version: u.to }), upgradeDetail(u), u.state === "needs_permission" || u.state === "skipped")}
-            <span className="shrink-0 whitespace-nowrap text-[12.5px] text-accent-ink">{action}</span>
-            <Icon name="chevronRight" size={12} stroke={2} className="shrink-0 text-ink-3" />
-          </button>
-        ) : (
-          <div className="flex items-center gap-3 px-4 py-2.5">{line(t("settings-extensions.new_version", { version: u.to }), upgradeDetail(u), false)}</div>
-        ))}
-      {note && p.upgrade_note && <div className="flex items-center gap-3 px-4 py-2.5">{line(note, ago(p.upgrade_note.at), p.upgrade_note.kind === "rolled_back")}</div>}
-    </Group>
-  );
-}
-
 /** Requests about extension id (its details, settings, models, pages) go to manager while the view is open: the same
  *  id may be installed under several managers (each one's built-ins), and the default's own keep going to it elsewhere. */
 function usePinnedExtension(id: string, manager: string | undefined) {
@@ -374,6 +336,8 @@ function ExtensionDetail({ id, manager, onBack, onPage, onUpgrade, onChannel, on
   onConnector?: (id: string, manager?: string) => void;
 }) {
   usePinnedExtension(id, manager);
+  const roster = useRoster();
+  const offline = roster?.managers.find((m) => m.id === (manager || defaultManager()))?.online === false;
   const [removing, setRemoving] = useState(false);
   const [detail, setDetail] = useState<HubExtensionDetail | null>(null);
   const [error, setError] = useState("");
@@ -440,9 +404,9 @@ function ExtensionDetail({ id, manager, onBack, onPage, onUpgrade, onChannel, on
 
   const problems = useMemo(() => numberProblems(typed), [typed]);
   const dirty = !!detail && (isDirty(draft, detail.config) || Object.keys(problems).length > 0);
-  const canSave = dirty && !Object.keys(problems).length && !saving;
+  const canSave = dirty && !Object.keys(problems).length && !saving && !offline;
   const fields = detail?.form?.fields ?? [];
-  const editable = !!detail && !detail.read_only;
+  const editable = !!detail && !detail.read_only && detail.source !== "dev" && detail.source !== "hub.json";
 
   // An operation of this extension that succeeds while the page is open (an upgrade, also the hub's auto-upgrade, or
   // an install or uninstall from another device): its version, upgrades and permissions are read again. A dirty form
@@ -592,7 +556,7 @@ function ExtensionDetail({ id, manager, onBack, onPage, onUpgrade, onChannel, on
   const p = detail;
 
   return (
-    <div className={cx(dirty && "pb-16")}>
+    <div>
       <div className="relative mb-3 flex items-center gap-2">
         <Button tone="quiet" icon="chevronLeft" onClick={back} className="-ml-2">
           {t("settings-extensions.title")}
@@ -638,31 +602,22 @@ function ExtensionDetail({ id, manager, onBack, onPage, onUpgrade, onChannel, on
         )}
       </section>
 
-      {/* a way of talking to Persona: binding it, its switch and where its messages go are on the channel's page */}
-      {p?.auth && <AuthGroup id={p.id} auth={p.auth} enabled={p.enabled ?? true} start={startSignIn} onChange={authChanged} />}
-
-      {p && onChannel && channelOf(p) && <ChannelLink id={channelOf(p)!} manager={manager} onOpen={onChannel} />}
-
       {p && (
-        <>
-          {p.read_only ? (
-            <Group title={t("settings-extensions.switch_and_settings")}>
-              <div className="flex items-start gap-3 px-4 py-3">
-                <Icon name="lock" size={14} className="mt-0.5 shrink-0 text-ink-3" />
-                <p className="text-[12.5px] leading-relaxed text-ink-2">{t("settings-extensions.read_only")}</p>
-              </div>
-            </Group>
-          ) : (
-            <Group footer={t("settings-extensions.enable_footer")}>
-              <div className="flex items-center gap-3 px-4 py-2.5">
-                <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{t("settings-extensions.enable")}</span>
-                {toggling && <Spinner />}
-                <Switch on={p.enabled ?? true} onChange={(on) => void toggle(on)} disabled={toggling} label={t("settings-extensions.enable")} />
-              </div>
-            </Group>
-          )}
-
-          {p.auto_upgrade !== undefined && <UpgradeGroup p={p} busy={toggling} onToggle={(on) => void toggleAutoUpgrade(on)} onUpgrade={onUpgrade} />}
+        <ExtensionSettingsPage
+          detail={p}
+          manager={manager}
+          busy={toggling || saving}
+          offline={offline}
+          onEnabled={(on) => void toggle(on)}
+          onAutoUpgrade={(on) => void toggleAutoUpgrade(on)}
+          onUpgrade={onUpgrade}
+          onUninstall={() => setRemoving(true)}
+          onChecked={async () => { await readDetail((d) => dirtyNow.current ? setDetail(d) : apply(d), (error) => { throw error; }); }}
+          configuration={<>
+          {p.auth && <AuthGroup id={p.id} auth={p.auth} enabled={p.enabled ?? true} start={startSignIn} onChange={authChanged} />}
+          {onChannel && channelOf(p) && <ChannelLink id={channelOf(p)!} manager={manager} onOpen={onChannel} />}
+          {!editable && <Group><Row label={t(p.read_only || p.source === "hub.json" ? "settings-extensions.read_only" : "settings-extensions.externally_managed")} wrapHint /></Group>}
+          {editable && !fields.length && !p.secrets?.length && !shownPages(p.ui, p.auth).length && !p.auth && !channelOf(p) && !p.contributes?.connectors?.length && <Group><Row label={t("settings-extensions.no_configuration")} /></Group>}
 
           {shownPages(p.ui, p.auth).length > 0 && (
             <Group title={t("settings-extensions.pages_title")} footer={t("settings-extensions.pages_footer")}>
@@ -687,7 +642,7 @@ function ExtensionDetail({ id, manager, onBack, onPage, onUpgrade, onChannel, on
             <>
               {fieldErrors[""] && <p role="alert" className="mb-3 rounded-[8px] bg-red-tint px-3 py-2 text-[12px] break-words text-red">{t("settings-extensions.not_saved", { error: fieldErrors[""] })}</p>}
               {fields.some((f) => f.type !== "object") && (
-                <Group title={t("settings-extensions.settings_title")} footer={saveFooter(fields)}>
+                <Group footer={saveFooter(fields)}>
                   {fields
                     .filter((f) => f.type !== "object")
                     .map((f) => (
@@ -727,6 +682,8 @@ function ExtensionDetail({ id, manager, onBack, onPage, onUpgrade, onChannel, on
             </Group>
           )}
 
+          </>}
+          information={<>
           {!!p.depends?.length && (
             <Group title={t("settings-extensions.depends_title")} footer={t("settings-extensions.depends_footer")}>
               {p.depends.map((d) => <Row key={d.id} label={d.name || d.id} hint={d.version}><span className={cx(d.state !== "ok" && "text-orange")}>{dependencyText(d)}</span></Row>)}
@@ -741,7 +698,7 @@ function ExtensionDetail({ id, manager, onBack, onPage, onUpgrade, onChannel, on
             <Group title={t("settings-extensions.contributions_title")} footer={t("settings-extensions.contributions_footer")}>
               {p.contributions.map((c) => (
                 <Row key={`${c.point}/${c.id}`} label={c.title || c.id} hint={`${pointText(c.point)} · ${c.id}${c.via === "connector" ? t("settings-extensions.via_connector") : c.via === "config" ? t("settings-extensions.via_config") : ""}`}>
-                  <Switch label={c.title || c.id} on={c.enabled} disabled={!editable || toggling || !c.can_disable} onChange={(on) => void toggleContribution(c, on)} />
+                  <Switch label={c.title || c.id} on={c.enabled} disabled={!editable || toggling || offline || !c.can_disable} onChange={(on) => void toggleContribution(c, on)} />
                 </Row>
               ))}
             </Group>
@@ -771,41 +728,25 @@ function ExtensionDetail({ id, manager, onBack, onPage, onUpgrade, onChannel, on
             </Group>
           )}
 
-          <About d={p} />
-
-          {marketOf(p.origin) && (
-            <Group footer={t("settings-extensions.market_installed_footer")}>
-              <button type="button" onClick={() => setRemoving(true)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] whitespace-nowrap text-red transition-colors hover:bg-red-tint">
-                <Icon name="trash" size={13} className="shrink-0" />
-                {t("settings-extensions.uninstall")}
-              </button>
+          </>}
+          saveBar={dirty && (
+            <Group>
+              {checkFailed && <SettingsHint alert>{t("settings-extensions.not_saved", { error: checkFailed })}</SettingsHint>}
+              <Row label={Object.keys(problems).length ? t("settings-extensions.not_a_number") : t("settings-extensions.unsaved")}>
+                <Button tone="quiet" onClick={revert} disabled={saving}>{t("settings-extensions.revert")}</Button>
+                <Button tone="accent" busy={saving} disabled={!canSave} onClick={() => void save()}>{t("common.save")}</Button>
+              </Row>
             </Group>
           )}
-        </>
+        />
       )}
-      {removing && p && <UninstallDialog id={p.id} name={p.name} pack={p.extension_pack} onClose={() => setRemoving(false)} onDone={onBack} />}
+      {removing && p && <UninstallDialog id={p.id} name={p.name} version={p.version} pack={p.extension_pack} onClose={() => setRemoving(false)} onDone={onBack} />}
       {dependents && p && (
         <Dialog open title={t("settings-extensions.disable_dependents_title", { name: p.name })} onClose={() => !toggling && setDependents(null)} footer={<><Button tone="quiet" disabled={toggling} onClick={() => setDependents(null)}>{t("common.cancel")}</Button><Button tone="danger" busy={toggling} onClick={() => void toggle(false, true)}>{t("settings-extensions.disable_all")}</Button></>}>
           <p className="text-ink-2">{t("settings-extensions.dependents_body", { names: formatList(dependents.map((d) => d.name), NARROW_LIST) })}</p>
         </Dialog>
       )}
 
-      {dirty && (
-        <div className="sticky bottom-3 z-10 mt-2 flex flex-col gap-2 rounded-card bg-surface px-3 py-2 shadow-overlay" style={{ animation: `fade-up 220ms ${EASE} both` }}>
-          {checkFailed && <p role="alert" className="rounded-[8px] bg-red-tint px-2.5 py-1.5 text-[12px] break-words text-red select-text">{t("settings-extensions.not_saved", { error: checkFailed })}</p>}
-          <div className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-2">
-              {Object.keys(problems).length ? t("settings-extensions.not_a_number") : t("settings-extensions.unsaved")}
-            </span>
-            <Button tone="quiet" onClick={revert} disabled={saving}>
-              {t("settings-extensions.revert")}
-            </Button>
-            <Button tone="accent" busy={saving} disabled={!canSave} onClick={() => void save()}>
-              {t("common.save")}
-            </Button>
-          </div>
-        </div>
-      )}
 
       {secret && <SecretDialog extension={id} secret={secret} onClose={() => setSecret(null)} onStart={secretStart} onDone={secretDone} />}
     </div>
@@ -833,59 +774,6 @@ export function SandboxGroup({ s }: { s: ExtensionSandbox }) {
           )}
         </div>
       )}
-    </Group>
-  );
-}
-
-function About({ d }: { d: HubExtensionDetail }) {
-  const source = sourceText(d.source);
-  let home = "";
-  try {
-    home = d.homepage && new URL(d.homepage).protocol === "https:" ? d.homepage : "";
-  } catch {
-    home = "";
-  }
-  return (
-    <Group title={t("settings-extensions.about_title")}>
-      {d.version && <Row label={t("settings-extensions.version")} mono>{d.version}</Row>}
-      {d.previous_version && <Row label={t("settings-extensions.previous_version")} mono>{d.previous_version}</Row>}
-      {source && <Row label={t("settings-extensions.source")}>{source}</Row>}
-      {d.origin && (
-        <Row label={t("settings-extensions.installed_from")} mono>
-          <span className="max-w-[360px] truncate select-text" title={d.origin}>
-            {d.origin}
-          </span>
-        </Row>
-      )}
-      {d.publisher && <Row label={t("settings-extensions.publisher")}>{d.publisher}</Row>}
-      {(d.tools ?? []).map((x) => (
-        <Row
-          key={x.name}
-          label={
-            <span className="flex min-w-0 items-center gap-2">
-              <Icon name="terminal" size={13} className="shrink-0 text-ink-3" />
-              <span className="truncate">{x.title || x.name}</span>
-              {x.title && x.title !== x.name && <span className="shrink-0 font-mono text-[11.5px] text-ink-3">{x.name}</span>}
-            </span>
-          }
-          hint={t("settings-extensions.tool_title")}
-        >
-          {toolText(x)}
-        </Row>
-      ))}
-      {home && (
-        <a href={home} target="_blank" rel="noreferrer noopener" className="flex items-center gap-3 px-4 py-2.5 whitespace-nowrap transition-colors hover:bg-hover">
-          <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{t("settings-extensions.homepage")}</span>
-          <span className="min-w-0 truncate text-[12.5px] text-ink-3">{new URL(home).host}</span>
-          <Icon name="external" size={12} className="shrink-0 text-ink-3" />
-        </a>
-      )}
-      {(d.warnings ?? []).map((w) => (
-        <div key={w} className="flex items-start gap-2.5 px-4 py-2.5">
-          <Icon name="info" size={14} className="mt-0.5 shrink-0 text-orange" />
-          <span className="min-w-0 text-[12px] leading-snug break-words text-ink-2">{w}</span>
-        </div>
-      ))}
     </Group>
   );
 }

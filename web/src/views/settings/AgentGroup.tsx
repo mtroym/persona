@@ -11,7 +11,7 @@ export function AgentGroup() {
   const toggle = (on: boolean) => void setWorkspaceBoardEnabled(on).catch((e) => toast(errorText(e), "error"));
   const readonly = board.enabled !== null && !board.canWrite;
   return (
-    <Group title={t("workspace-board.setting_group")}>
+    <Group title={t("workspace-board.setting_group")} anchor="agent-group">
       <Row label={t("workspace-board.setting_label")} hint={readonly ? t("workspace-board.setting_readonly") : t("workspace-board.setting_hint")}>
         {board.enabled === null ? <Spinner /> : <Switch on={board.enabled} onChange={toggle} disabled={readonly} label={t("workspace-board.setting_label")} />}
       </Row>

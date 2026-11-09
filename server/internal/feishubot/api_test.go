@@ -332,3 +332,73 @@ func TestResourceTooLargeIsRefusedUnread(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 }
+
+// A JSON file the user sent comes back from a 200 download labeled application/json: it is the file, not an error,
+// even when it looks like an API error answer (a saved error response, say), and it is not downloaded twice.
+func TestResourceJSONFileIsTheFile(t *testing.T) {
+	for _, body := range []string{
+		`{"name":"settings","debug":true}`,
+		`[{"code":7,"msg":"x"}]`,
+		`{"code":7,"name":"no msg"}`,
+		`{"code":"E1","msg":"a string code"}`,
+		`{"code":0,"msg":"ok"}`,
+		`{"code":40001,"msg":"invalid token"}`,
+		`{"code":99991663,"msg":"token expired"}`,
+	} {
+		t.Run(body, func(t *testing.T) {
+			c, _, hits, tokens := retryAPIClient(t, func(w http.ResponseWriter, _ *http.Request, _ *atomic.Int32) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = io.WriteString(w, body)
+			})
+			b, ct, err := c.Resource(context.Background(), "om_x", "file_x", "file", 1024)
+			if err != nil || string(b) != body || ct != "application/json" || hits.Load() != 1 || tokens.Load() != 1 {
+				t.Fatalf("b=%q ct=%q err=%v hits=%d tokens=%d", b, ct, err, hits.Load(), tokens.Load())
+			}
+		})
+	}
+}
+
+// A JSON file over the limit is refused as too large, like any other file.
+func TestResourceJSONFileTooLarge(t *testing.T) {
+	c, _, _, _ := retryAPIClient(t, func(w http.ResponseWriter, _ *http.Request, _ *atomic.Int32) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"pad":"`+strings.Repeat("x", 2048)+`"}`)
+	})
+	if _, _, err := c.Resource(context.Background(), "om_x", "file_x", "file", 1024); !errors.Is(err, ErrTooLarge) {
+		t.Fatalf("err %v", err)
+	}
+}
+
+// A token-gone answer (non-200) is retried once with a fresh token; a second one is the error.
+func TestResourceTokenGoneIsRetriedOnce(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		gone  int32 // how many answers are token-gone before the file
+		isErr bool
+	}{{"fresh token fixes it", 1, false}, {"still gone after one retry", 2, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, _, hits, tokens := retryAPIClient(t, func(w http.ResponseWriter, _ *http.Request, n *atomic.Int32) {
+				if n.Load() <= tc.gone {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					okJSON(w, map[string]any{"code": 99991663, "msg": "token expired"})
+					return
+				}
+				_, _ = io.WriteString(w, "file bytes")
+			})
+			b, _, err := c.Resource(context.Background(), "om_x", "file_x", "file", 1024)
+			if hits.Load() != 2 || tokens.Load() != 2 {
+				t.Fatalf("hits=%d tokens=%d", hits.Load(), tokens.Load())
+			}
+			if tc.isErr {
+				if errorCode(err) != 99991663 || b != nil {
+					t.Fatalf("b=%q err=%v", b, err)
+				}
+				return
+			}
+			if err != nil || string(b) != "file bytes" {
+				t.Fatalf("b=%q err=%v", b, err)
+			}
+		})
+	}
+}

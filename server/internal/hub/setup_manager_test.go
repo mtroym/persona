@@ -80,7 +80,7 @@ func TestSetupChildModeWithoutServices(t *testing.T) {
 			}
 			e.pingDB = func(context.Context, string) error {
 				cfg, _ := readHubJSON(e.root)
-				raw, _ := cfg.get("token")
+				raw, _ := cfg.Get("token")
 				_ = json.Unmarshal(raw, &token)
 				return nil
 			}
@@ -120,7 +120,7 @@ func TestSetupNoSystemdStaysChild(t *testing.T) {
 	e.o.noService = true
 	e.pingDB = func(context.Context, string) error {
 		cfg, _ := readHubJSON(e.root)
-		raw, _ := cfg.get("token")
+		raw, _ := cfg.Get("token")
 		_ = json.Unmarshal(raw, &token)
 		return nil
 	}
@@ -404,7 +404,7 @@ func TestFreshManagerMode(t *testing.T) {
 		if err := freshManagerMode(o, c.service, c.force); err != nil {
 			t.Fatal(err)
 		}
-		if got := string(o.marshal()); got != c.want {
+		if got := string(o.Marshal()); got != c.want {
 			t.Errorf("%s service=%v force=%v: %s, want %s", c.in, c.service, c.force, got, c.want)
 		}
 	}

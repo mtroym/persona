@@ -281,7 +281,7 @@ func TestSetupNewInstall(t *testing.T) {
 	// The hub "starts" when the units do: the token is what setup wrote.
 	e.pingDB = func(context.Context, string) error {
 		cfg, _ := readHubJSON(e.root)
-		raw, _ := cfg.get("token")
+		raw, _ := cfg.Get("token")
 		_ = json.Unmarshal(raw, &token)
 		return nil
 	}
@@ -707,7 +707,7 @@ func TestSetupFillsAFileNoHubHasRead(t *testing.T) {
 	}
 	e.pingDB = func(_ context.Context, u string) error {
 		cfg, _ := readHubJSON(e.root)
-		raw, _ := cfg.get("token")
+		raw, _ := cfg.Get("token")
 		_ = json.Unmarshal(raw, &token)
 		if u != "postgres://dbsh" {
 			return errors.New("wrong database")
@@ -818,7 +818,7 @@ func TestSetupMacLaunchAgent(t *testing.T) {
 	e.run = func(ctx context.Context, env []string, name string, args ...string) ([]byte, error) {
 		if name == "launchctl" && len(args) > 0 && args[0] == "bootstrap" { // the hub comes up with the agent
 			cfg, _ := readHubJSON(e.root)
-			raw, _ := cfg.get("token")
+			raw, _ := cfg.Get("token")
 			_ = json.Unmarshal(raw, &token)
 		}
 		return cmds.run(ctx, env, name, args...)
@@ -888,7 +888,7 @@ func TestFillMissing(t *testing.T) {
 	if err := fillMissing(dst, src); err != nil {
 		t.Fatal(err)
 	}
-	got, _ := dst.indented()
+	got, _ := dst.Indented()
 	var v map[string]any
 	_ = json.Unmarshal(got, &v)
 	admin := v["admin"].(map[string]any)

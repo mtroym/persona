@@ -52,21 +52,23 @@ describe("agent settings", () => {
   });
 
   it.each([
-    ["en", "not applied"],
-    ["zh-Hans", "未生效"],
-    ["ja", "反映されていません"],
-  ])("explains ignored max in %s while keeping the model default selected", async (lang, warning) => {
+    ["en", "not applied", "Model configuration › Agents › Reasoning effort"],
+    ["zh-Hans", "未生效", "模型配置 › Agents › 思考强度"],
+    ["ja", "反映されていません", "モデル構成 › Agents › 思考レベル"],
+  ])("explains ignored max in %s while keeping the model default selected", async (lang, warning, breadcrumb) => {
     try {
       await initI18n(lang);
       const ignored: AgentSetting = { ...effort, value: null, default: "auto", ignored_value: "max" };
       expect(effective(ignored)).toBe("auto");
       expect(isUnset(ignored)).toBe(true);
       expect(settingDetail(ignored)).toContain(warning);
+      expect(settingDetail(ignored)).toContain(breadcrumb);
       expect(settingDetail(ignored)).toContain("/effort max");
       const changed = withValue([ignored, recap], "effortLevel", "high");
       expect(changed[0].ignored_value).toBeUndefined();
       expect(settingDetail(changed[0])).not.toContain(warning);
       expect(settingDetail(changed[0])).toContain("auto");
+      expect(settingDetail(changed[0])).toContain(breadcrumb);
       expect(settingDetail(changed[0])).toContain("/effort max");
       expect(changed[1]).toBe(recap);
     } finally {

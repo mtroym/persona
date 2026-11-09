@@ -134,7 +134,7 @@ func (h *Hub) addMachineMoving(mc *MachineConfig, by string) error {
 		if err != nil {
 			return err
 		}
-		return o.set("machines", append(list, entry))
+		return o.Set("machines", append(list, entry))
 	})
 	if err != nil {
 		return err

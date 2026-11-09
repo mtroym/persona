@@ -700,8 +700,9 @@ func checkAgentSandbox(dir string) DoctorCheck {
 }
 
 // agentSandboxLimits is what the doctor reminds of while the sandbox is on (docs/server/agent-sandbox.md): what it does not
-// stop, and what stops working in it.
-const agentSandboxLimits = "挡不住 docker；沙箱里 ps、top、sudo 这类 setuid 程序起不来"
+// stop, which agents it does not cover, and what stops working in it.
+const agentSandboxLimits = "挡不住 docker；在 herdr 或 Orca 里不经托管启动器（personad launch）启动的 agent，" +
+	"比如直接用 claude 或 ~/.zshrc 里的启动器，包括 herdr 重启后接着跑的，不在沙箱里；沙箱里 ps、top、sudo 这类 setuid 程序起不来"
 
 // agentSandboxWords are the statuses in the doctor's words.
 var agentSandboxWords = map[string]string{

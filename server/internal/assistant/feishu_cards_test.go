@@ -440,3 +440,88 @@ func TestFeishuPermissionCardOffersAlwaysOnlyWhereItWorks(t *testing.T) {
 		t.Fatalf("a card without a conversation: %v", bs)
 	}
 }
+
+// planCardMarkdown is the plan's Markdown block on its card (the card's first Markdown element).
+func planCardMarkdown(t *testing.T, c *feishubot.Card) string {
+	t.Helper()
+	var m struct {
+		Body struct {
+			Elements []map[string]any `json:"elements"`
+		} `json:"body"`
+	}
+	if err := json.Unmarshal([]byte(c.JSON()), &m); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range m.Body.Elements {
+		if e["tag"] == "markdown" {
+			s, _ := e["content"].(string)
+			return s
+		}
+	}
+	t.Fatalf("no Markdown block on the plan card: %s", c.JSON())
+	return ""
+}
+
+// A plan too long for its card is cut at a line break, and a code block the cut lands in is closed, so the clipped
+// note after it reads as text, not as the code's last line. A plan that fits is shown as it is.
+func TestFeishuPlanCardClipClosesItsCodeBlock(t *testing.T) {
+	s := newTestService(t, newFakeHub())
+	ctx := i18n.With(context.Background(), i18n.En)
+	note := i18n.T(i18n.En, "assistant-feishu_cards.plan_clipped")
+	planCard := func(plan string) string {
+		return planCardMarkdown(t, s.interactionCard(ctx, proto.Interaction{ID: "ix_plan", Kind: proto.IxPlan, Plan: plan}))
+	}
+	line := strings.Repeat("step ", 19) + "done\n" // 100 runes
+	// prose is n runes of whole lines.
+	prose := func(n int) string {
+		p := strings.Repeat(line, n/100)
+		if r := n % 100; r > 0 {
+			p += strings.Repeat("x", r-1) + "\n"
+		}
+		return p
+	}
+	var code strings.Builder
+	for i := range 200 {
+		fmt.Fprintf(&code, "\tfmt.Println(%d) // line %d of the change\n", i, i)
+	}
+	withCode := func(n int) string { return prose(n) + "```go\n" + code.String() + "```\n\nThen run the tests.\n" }
+
+	for _, c := range []struct{ name, plan string }{
+		{"cut inside the code block", withCode(4800)},
+		{"cut right after the opener", withCode(4990)},
+		{"cut in the middle of a prose line", "1. Intro\n" + strings.Repeat(line, 60)},
+	} {
+		md := planCard(c.plan)
+		head, ok := strings.CutSuffix(md, note)
+		if !ok {
+			t.Fatalf("%s: the clipped note is not last: %q", c.name, md[max(0, len(md)-200):])
+		}
+		if n := len([]rune(head)); n > maxPlanRunes {
+			t.Fatalf("%s: %d runes of plan, over %d", c.name, n, maxPlanRunes)
+		}
+		fences := 0
+		for _, l := range strings.Split(head, "\n") {
+			if strings.HasPrefix(l, "```") {
+				fences++
+			}
+		}
+		if fences%2 != 0 {
+			t.Fatalf("%s: %d fence lines, so the note shows as code: %q", c.name, fences, md[max(0, len(md)-200):])
+		}
+		body := strings.TrimSuffix(head, "\n```") // the close the cut adds to a code block
+		if !strings.HasPrefix(c.plan, body) || c.plan[len(body)] != '\n' {
+			t.Fatalf("%s: not cut at one of the plan's line breaks: %q", c.name, head[max(0, len(head)-120):])
+		}
+	}
+
+	short := "1. Change `cache.go`\n```go\nx := 1\n```\n2. Test it\n"
+	if md := planCard(short); md != feishubot.CardMarkdown(short) {
+		t.Fatalf("a short plan changed: %q", md)
+	}
+	if full := prose(maxPlanRunes); planCard(full) != feishubot.CardMarkdown(full) {
+		t.Fatal("a plan of exactly maxPlanRunes runes was clipped")
+	}
+	if head, ok := strings.CutSuffix(planCard(strings.Repeat("\n", 6000)), note); !ok || len([]rune(head)) > maxPlanRunes {
+		t.Fatalf("a plan of line breaks: %d runes, note last %v", len([]rune(head)), ok)
+	}
+}

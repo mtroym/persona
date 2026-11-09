@@ -391,6 +391,23 @@ func TestElsewhereReplyCarriesTheQuotedText(t *testing.T) {
 	})
 }
 
+// The quoted message's own mentions name the people it @s: the quote carries "@Alice", not the message's @_user_1 key.
+func TestElsewhereQuoteNamesItsMentions(t *testing.T) {
+	e := newAskEnv(t, nil)
+	e.readable["om_parent"] = map[string]any{"message_id": "om_parent", "chat_id": askSrc, "msg_type": "text",
+		"mentions": []map[string]any{{"key": "@_user_1", "name": "Alice"}}, "body": map[string]any{"content": `{"text":"@_user_1 please check"}`}}
+	ev := ownerAsk("om_ask_m", "/ai 跟进一下")
+	ev.Message.ParentID, ev.Message.RootID = "om_parent", "om_parent"
+	e.ask(ev)
+	root, _ := textsTo(e.f, askHome)[0]["text"].(string)
+	if lines := strings.Split(root, "\n"); len(lines) != 3 || lines[1] != e.said("elsewhere_root_quote", i18n.Args{"quote": "@Alice please check"}) {
+		t.Fatalf("first message %q", root)
+	}
+	if notes := onlyTodo(e.s).Notes; !strings.Contains(notes, "@Alice please check") || strings.Contains(notes, "@_user_1") {
+		t.Fatalf("notes %q", notes)
+	}
+}
+
 // 5. No home topic group: the request is not turned away. Its first message goes into the owner's private chat with the
 // bot, and the to-do is made as for a topic but bound to none: supervised, handed to the main conversation, the run
 // answering under that first message, the source recorded with that message as its anchor; the original message gets the

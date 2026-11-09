@@ -13,8 +13,6 @@
   "tab_translate": "翻訳",
   "tab_shortcuts": "ショートカット",
   "tab_devices": "デバイス",
-  "group_general": "基本",
-  "group_models": "モデルとエージェント",
   "group_connections": "接続",
   "hint_general": "外観、ナビゲーション、翻訳",
   "hint_notifications": "通知と通知音のタイミング",
@@ -28,5 +26,8 @@
   "tab_managers": "マネージャー",
   "hint_managers": "各アシスタントの実行場所とオンライン状態",
   "tab_sent": "あなたの名前で送信",
-  "hint_sent": "あなたの名前で送信した内容と、許可された理由"
+  "hint_sent": "あなたの名前で送信した内容と、許可された理由",
+  "group_personal": "個人",
+  "group_assistant": "アシスタント",
+  "group_system": "システム"
 }

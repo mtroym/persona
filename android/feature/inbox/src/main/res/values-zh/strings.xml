@@ -147,6 +147,7 @@
     <string name="inbox_triage_timeout">分拣模型太慢了</string>
     <string name="inbox_triage_behind">新消息太多，正在排队</string>
     <string name="inbox_triage_configure">去配置</string>
+    <string name="inbox_read_failed">这一轮没读到，列表可能不全</string>
     <string name="inbox_translating">正在翻译成%1$s…</string>
     <string name="inbox_translation_original">原文</string>
     <string name="inbox_translated_into">已翻译成%1$s</string>

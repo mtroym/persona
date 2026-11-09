@@ -247,7 +247,7 @@
     <string name="settings_ext_token_removed">トークンを削除しました</string>
     <string name="settings_ext_token_changed">トークンを変更しました</string>
     <string name="settings_ext_remove_market_title">%1$sを削除しますか？</string>
-    <string name="settings_ext_remove_market_text">ハブはこのマーケットを読まなくなります。そこからインストールした拡張機能は残ります。</string>
+    <string name="settings_ext_remove_market_text">ハブはこのマーケットを読まなくなります。そこからインストールした拡張機能は残りますが、同じアドレスでマーケットを追加し直すまでアップグレードされません。</string>
     <string name="settings_ext_remove">削除</string>
     <string name="settings_ext_market_removed">マーケットを削除しました</string>
     <string name="settings_ext_market_address">アドレス</string>
@@ -277,6 +277,8 @@
     <string name="settings_ext_upgrade_title">アップグレード</string>
     <string name="settings_ext_upgrade_footer">マーケットに新しいバージョンが出ると、拡張機能がアイドル状態のときに自動でインストールされます。必要な権限が増える場合は先に確認します。インストール後に起動できない場合は元のバージョンに戻ります。</string>
     <string name="settings_ext_upgrade_paused_footer">この拡張機能がオフの間、自動アップグレードは一時停止します。拡張機能をオンに戻すと、元の自動アップグレード設定に戻ります。</string>
+    <string name="settings_ext_upgrade_market_removed_footer">マーケットが削除されたため、アップグレードされなくなりました。同じアドレスでマーケットを追加し直すと、アップグレードが再開します。</string>
+    <string name="settings_ext_upgrade_paused_other_footer">この拡張機能の自動アップグレードは現在一時停止しています。</string>
     <string name="settings_ext_auto_upgrade">自動アップグレード</string>
     <string name="settings_ext_new_version">新しいバージョン %1$s</string>
     <string name="settings_ext_auto_upgrade_on">自動アップグレードをオンにしました</string>

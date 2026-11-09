@@ -38,6 +38,7 @@ const (
 	maxScreenRunes       = 2500  // runes of the terminal screen kept
 	maxScreenLineRunes   = 300   // runes per terminal line
 	maxPermissionReason  = 1000  // runes of a permission's reason
+	maxPlanRunes         = 5000  // runes of a plan shown on its card (clipPlan)
 	maxAnsweredQuestions = 3     // questions shown on an answered card
 	maxAnsweredQRunes    = 150   // runes per question on an answered card
 	maxCardJSONBytes     = 24000 // serialized size above which safeCard falls back (Feishu rejects ~30 KB)
@@ -519,11 +520,7 @@ func (s *Service) interactionCard(ctx context.Context, ix proto.Interaction) *fe
 		return safeCard(l, c.Buttons(open, feishubot.Btn(i18n.T(l, "assistant-feishu_cards.dismiss"), feishubot.Default, val(map[string]any{"dismiss": "1"}))), open)
 	case proto.IxPlan:
 		c := feishubot.NewCard("📋 "+i18n.T(l, "assistant-feishu_cards.plan_title", i18n.Args{"where": s.ixWhere(ctx, ix)}), feishubot.Blue, i18n.T(l, "assistant-feishu_cards.plan_summary"))
-		plan := ix.Plan
-		if r := []rune(plan); len(r) > 5000 {
-			plan = string(r[:5000]) + i18n.T(l, "assistant-feishu_cards.plan_clipped")
-		}
-		c.Markdown(feishubot.CardMarkdown(plan))
+		c.Markdown(feishubot.CardMarkdown(clipPlan(ix.Plan, i18n.T(l, "assistant-feishu_cards.plan_clipped"))))
 		c.Buttons(
 			feishubot.Btn(i18n.T(l, "assistant-feishu_cards.approve_run"), feishubot.Primary, val(map[string]any{"approve": "1", "mode": "bypassPermissions"})),
 			feishubot.Btn(i18n.T(l, "assistant-feishu_cards.approve_edits"), feishubot.Default, val(map[string]any{"approve": "1", "mode": "acceptEdits"})),
@@ -620,6 +617,19 @@ func (s *Service) interactionCard(ctx context.Context, ix proto.Interaction) *fe
 		return safeCard(l, s.elicitationCard(ctx, ix, open), open)
 	}
 	return safeCard(l, feishubot.NewCard(where, feishubot.Grey, "").Buttons(open), open)
+}
+
+// clipPlan is a plan longer than maxPlanRunes cut to its first channel.Split piece, then note. The piece ends at a line
+// break where it can and closes a code block it cuts into, so the note reads as text, not as the code's last line.
+func clipPlan(plan, note string) string {
+	if len([]rune(plan)) <= maxPlanRunes {
+		return plan
+	}
+	head := channel.Split(plan, maxPlanRunes)[0]
+	if r := []rune(head); len(r) > maxPlanRunes { // Split hands back a plan of only line breaks whole
+		head = string(r[:maxPlanRunes])
+	}
+	return head + note
 }
 
 // safeCard returns c, or, when it would still be too big for Feishu after the clipping above, a short card that sends

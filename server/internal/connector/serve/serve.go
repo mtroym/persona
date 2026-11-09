@@ -7,8 +7,9 @@
 // A write (actions.do) comes only once the hub's gate let it through; the program never starts one itself.
 //
 // A program answers two openings: init and the bare method names (connector protocol 2 on its own), and the plugin
-// protocol's initialize with the same methods in the connector namespace (connector.status, …; docs/extensions/extensions.md). The
-// hub starts its connector programs as plugins; the bare opening stays for one release.
+// protocol's initialize with the same methods in the connector namespace (connector.status, …; docs/extensions/extensions.md).
+// The extension manager runs connector programs as plugins (connector/proc with a Link). connector/proc still opens a
+// program it starts itself (Config.Path) with init, as its tests and the conformance kit do, so both openings stay.
 package serve
 
 import (

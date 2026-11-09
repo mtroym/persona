@@ -75,6 +75,8 @@ func (n *Node) startOtherAgent(ctx context.Context, launch host.Launcher, cwd, l
 	// directory in front, the assistant's environment left out (agentenv.go).
 	shells := paneShells(ctx)
 	cmd := withHerdrAgent(typedHerdrAgent(launch, kind, shells...), otherAgentCommand(launcher, resume, prompt))
+	// Not in the agent sandbox (agentsandbox.go).
+	n.notePaneStart(launcher)
 	done, err := n.runAgentCommand(ctx, launch, created, ws, "", n.agentCommand(cmd, shellQuote, shells...), shells...) // typedstart.go
 	if err != nil {
 		return nil, err

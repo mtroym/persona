@@ -179,6 +179,8 @@ data class ExtensionUiEvent(
      * again. Not a badge change: the badge stays.
      */
     val invalidate: Boolean = false,
+    /** The manager that sent it ([pushManager]): none from the assistant the hub starts (docs/assistant/managers.md). */
+    val manager: String? = null,
 ) : ServerEvent
 
 /** The hub's update status changed (docs/operations/hub-update.md "In the app"): `update` is what GET /api/v1/hub/update answers. */
@@ -192,7 +194,7 @@ data class HubUpdateEvent(val update: persona.core.contracts.api.HubUpdateStatus
  */
 @KeepGeneratedSerializer
 @Serializable(with = ExtensionOperationEventSerializer::class)
-data class ExtensionOperationEvent(val operation: persona.core.contracts.api.ExtensionOperation) : ServerEvent
+data class ExtensionOperationEvent(val operation: persona.core.contracts.api.ExtensionOperation, val manager: String? = null) : ServerEvent
 
 /**
  * An extension's sign-in changed (#4507: signed in, out, expired, or the extension said so): only from a hub that says
@@ -200,7 +202,14 @@ data class ExtensionOperationEvent(val operation: persona.core.contracts.api.Ext
  */
 @KeepGeneratedSerializer
 @Serializable(with = ExtensionAuthEventSerializer::class)
-data class ExtensionAuthEvent(val extension: String, val auth: persona.core.contracts.api.ExtensionAuth) : ServerEvent
+data class ExtensionAuthEvent(val extension: String, val auth: persona.core.contracts.api.ExtensionAuth, val manager: String? = null) : ServerEvent
+
+/**
+ * Whose an extension push is (`extension_ui`, `extension_operation`, `extension_auth`): the hub puts a top-level
+ * `manager` on every manager's but the assistant's it starts, so none is the assistant's (docs/assistant/managers.md,
+ * the same extension id under several managers, #1834).
+ */
+fun pushManager(manager: String?): String = manager?.takeIf { it.isNotBlank() } ?: persona.core.contracts.api.ManagerRoster.ASSISTANT_MANAGER
 
 /**
  * The managers' roster changed (docs/assistant/managers.md: made, renamed, connected, gone): only to an app that asks for the

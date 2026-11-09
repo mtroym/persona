@@ -147,6 +147,7 @@
     <string name="inbox_triage_timeout">振り分けモデルの応答が遅すぎます</string>
     <string name="inbox_triage_behind">新しいメッセージが多いため順番待ち</string>
     <string name="inbox_triage_configure">設定する</string>
+    <string name="inbox_read_failed">今回は読み取れませんでした。一覧が不完全な可能性があります</string>
     <string name="inbox_translating">%1$sに翻訳中…</string>
     <string name="inbox_translation_original">原文</string>
     <string name="inbox_translated_into">%1$sに翻訳済み</string>

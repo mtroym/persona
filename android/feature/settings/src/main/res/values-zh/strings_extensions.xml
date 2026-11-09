@@ -247,7 +247,7 @@
     <string name="settings_ext_token_removed">已去掉 token</string>
     <string name="settings_ext_token_changed">已换 token</string>
     <string name="settings_ext_remove_market_title">删除 %1$s？</string>
-    <string name="settings_ext_remove_market_text">hub 不再读这个市场。从它装的扩展留着。</string>
+    <string name="settings_ext_remove_market_text">hub 不再读这个市场。从它装的扩展留着，但不再升级，直到用同样的地址把市场加回来。</string>
     <string name="settings_ext_remove">删除</string>
     <string name="settings_ext_market_removed">已删除市场</string>
     <string name="settings_ext_market_address">地址</string>
@@ -277,6 +277,8 @@
     <string name="settings_ext_upgrade_title">升级</string>
     <string name="settings_ext_upgrade_footer">扩展市场里出了新版本，扩展空闲时自动装上；新版本要的权限变多时先问你。装上后起不来的会退回原来的版本。</string>
     <string name="settings_ext_upgrade_paused_footer">扩展关闭期间暂停自动升级。重新打开扩展后，恢复你原来的自动升级设置。</string>
+    <string name="settings_ext_upgrade_market_removed_footer">它的市场已经删掉了，不会再升级。用同样的地址把市场加回来，就能恢复升级。</string>
+    <string name="settings_ext_upgrade_paused_other_footer">这个扩展的自动升级暂时停了。</string>
     <string name="settings_ext_auto_upgrade">自动升级</string>
     <string name="settings_ext_new_version">有新版本 %1$s</string>
     <string name="settings_ext_auto_upgrade_on">已打开自动升级</string>

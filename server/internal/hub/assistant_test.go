@@ -32,7 +32,7 @@ func TestAskUserReturnsAnswers(t *testing.T) {
 	}
 }
 
-func TestAgentsListAndFind(t *testing.T) {
+func TestAgentsList(t *testing.T) {
 	h := newTestHub(t)
 	m := newMachine(h, MachineConfig{ID: "box", Name: "Box", Kind: "local"})
 	h.machines, h.byID["box"] = []*Machine{m}, m
@@ -51,12 +51,6 @@ func TestAgentsListAndFind(t *testing.T) {
 	}
 	if all := agents(`{"state":"all","query":"old"}`); !strings.Contains(all, "旧的") || strings.Contains(all, "修登录") {
 		t.Fatalf("query filter:\n%s", all)
-	}
-	if _, s, err := h.findAgent("", "aaaaaaaa"); err != nil || s.SessionID != "aaaaaaaa-1" {
-		t.Fatalf("prefix lookup: %v %+v", err, s)
-	}
-	if _, _, err := h.findAgent("box", "cccccccc"); err == nil {
-		t.Fatal("unknown id should fail")
 	}
 }
 
@@ -93,12 +87,5 @@ func TestAssistantToolsOnlyForAssistant(t *testing.T) {
 		if !names[want] {
 			t.Fatalf("assistant is missing %s", want)
 		}
-	}
-}
-
-func TestCompactJSONPrunes(t *testing.T) {
-	out := compactJSON(json.RawMessage(`{"a":{"avatarUrl":"x","name":"n","empty":"","no":false},"list":[{"thumbnail":"t","v":1}]}`), 1000)
-	if strings.Contains(out, "avatar") || strings.Contains(out, "thumbnail") || strings.Contains(out, "empty") || !strings.Contains(out, `"name":"n"`) {
-		t.Fatalf("got %s", out)
 	}
 }

@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"io"
 	"log"
 	"os"
@@ -431,5 +432,56 @@ func TestAgentSandboxCoversPathGuard(t *testing.T) {
 		if dataSecret(rel) || !closed(rel) {
 			t.Errorf("%s: path guard %v, sandbox %v; want the sandbox only", rel, dataSecret(rel), closed(rel))
 		}
+	}
+}
+
+// An agent the node starts in a herdr or Orca pane runs outside the sandbox unless its launcher is a managed one
+// (`personad launch` records its own start): with the switch on, the start is recorded as skipped, so the doctor's
+// line warns instead of reading as if every agent were covered.
+func TestPaneStartOutsideTheSandboxIsRecorded(t *testing.T) {
+	agentSandboxFakes(t, macSandbox)
+	for _, on := range []bool{true, false} {
+		withPaneShell(t, "/bin/zsh")
+		n, f, home := herdrNode(t)
+		if on {
+			writeFile(t, filepath.Join(n.dir, sandbox.AgentOnFile), "")
+		}
+		f.reply("session.snapshot", snapshot(nil, nil, nil, nil))
+		f.reply("tab.create", map[string]any{"tab": map[string]any{"tab_id": "w1:t2"}, "root_pane": map[string]any{"pane_id": "w1:p2"}})
+		ctx, cancel := context.WithCancel(context.Background())
+		f.after(func(c herdrCall) {
+			if c.Method == "pane.send_input" {
+				cancel() // started: the record is written before the command is typed
+			}
+		})
+		_, _ = n.start(ctx, home, "claude", "", "", "w1", "", "", "", startID, "")
+		cancel()
+		got, ok := readAgentSandboxStatus(n.dir)[paneStartWhere]
+		if !on {
+			if ok {
+				t.Errorf("off: recorded %+v", got)
+			}
+			continue
+		}
+		if !ok || got.State != sandbox.AgentSkipped || !strings.Contains(got.Why, "「claude」") || !strings.Contains(got.Why, "personad launch") {
+			t.Fatalf("on: %+v %v", got, ok)
+		}
+		if c := checkAgentSandbox(n.dir); c.Status != DoctorWarn || !strings.Contains(c.Detail, paneStartWhere+"：跳过") {
+			t.Errorf("doctor: %+v", c)
+		}
+	}
+
+	// A managed launcher records its own start, and clears an earlier unwrapped one: the user did what the doctor said.
+	n := agentNode(t, true)
+	n.managed.byID = map[string]proto.ManagedLauncher{"work": {Name: "work"}}
+	n.notePaneStart("claude")
+	recordAgentSandbox(n.dir, "launch claude", sandbox.AgentStatus{State: sandbox.AgentActive})
+	n.notePaneStart("work")
+	all := readAgentSandboxStatus(n.dir)
+	if _, ok := all[paneStartWhere]; ok || all["launch claude"].State != sandbox.AgentActive {
+		t.Errorf("after a managed start: %+v", all)
+	}
+	if c := checkAgentSandbox(n.dir); c.Status != DoctorOK {
+		t.Errorf("doctor after a managed start: %+v", c)
 	}
 }

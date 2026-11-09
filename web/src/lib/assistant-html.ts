@@ -7,11 +7,10 @@
 //
 // What is here is the part that does not depend on that runtime, so it can be wired once one passes: whether to run
 // (never, for now), the bridge's messages held to the one instance that is on screen, the native confirmation with a
-// limit on prompts after a refusal, and the request the hub's html-actions endpoint takes.
-import { api, enc } from "./api";
+// limit on prompts after a refusal, and the body the hub's html-actions endpoint takes (htmlRequest).
 import { TEXT_MOST, openTarget } from "./assistant-blocks";
 import type { CardKey } from "./assistant-views";
-import type { AssistantHTMLActionInput, AssistantHTMLOpenResult, ViewAction } from "./extension-wire";
+import type { AssistantHTMLActionInput } from "./extension-wire";
 
 /**
  * Whether this client has a runtime for html that passed the security cases. False on the web: no such runtime yet,
@@ -122,11 +121,4 @@ export function htmlRequest(inst: HtmlInstance, ask: BridgeAsk, clientMsgId: str
     client_msg_id: clientMsgId,
     confirmed: true,
   };
-}
-
-export const htmlActionsPath = (conversation: string, key: CardKey) => `/assistant/conversations/${enc(conversation)}/views/${enc(key)}/html-actions`;
-
-/** Sends a confirmed bridge call; an open comes back with the URL the hub checked and the version it checked it at. */
-export function postHtmlAction(conversation: string, key: CardKey, req: HtmlActionRequest) {
-  return api<{ action?: ViewAction } & Partial<AssistantHTMLOpenResult>>(htmlActionsPath(conversation, key), { method: "POST", json: req });
 }

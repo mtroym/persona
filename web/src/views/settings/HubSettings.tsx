@@ -127,7 +127,7 @@ function HubUpdates() {
         </div>
       )}
 
-      <Group title={t("settings-hubsettings.version")}>
+      <Group title={t("settings-hubsettings.version")} anchor="hub-version">
         <Row label={t("settings-hubsettings.version")} mono>
           <span className="max-w-[320px] truncate" title={status.version}>{status.version}</span>
         </Row>
@@ -140,7 +140,7 @@ function HubUpdates() {
         </div>
       </Group>
 
-      <Group title={t("settings-hubsettings.update")} footer={status.can_update ? t("settings-hubsettings.update_footer") : undefined}>
+      <Group title={t("settings-hubsettings.update")} anchor="hub-update" footer={status.can_update ? t("settings-hubsettings.update_footer") : undefined}>
         {view.kind === "docker" && <DockerRows s={status} />}
         {view.kind === "cannot" && <p className="px-4 py-3 text-[12.5px] leading-relaxed text-ink-3">{view.why}</p>}
         {view.kind === "newer" && status.latest && (

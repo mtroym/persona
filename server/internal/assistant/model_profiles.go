@@ -45,9 +45,6 @@ var (
 	modelTierName  = lazyre.New(`^[a-z][a-z0-9_-]{0,23}$`)
 )
 
-// modelProfileFields are the model fields of a managed launcher a profile can set, by their JSON names.
-var modelProfileFields = []string{"model", "small_model", "subagent_model", "opus_model", "sonnet_model", "haiku_model", "fable_model", "effort"}
-
 // ModelProfile is one profile: what it sets, and nothing else (a category or field it leaves out stays as it is).
 type ModelProfile struct {
 	ID          string `json:"id"`
@@ -76,7 +73,8 @@ type LauncherModels struct {
 	Effort        *string `json:"effort,omitempty"`
 }
 
-// fields pairs each of modelProfileFields with its value in m and the field of l it sets (nil: only m's).
+// fields pairs each model field of a managed launcher a profile can set (by its JSON name) with its value in m and
+// the field of l it sets (nil: only m's).
 func (m *LauncherModels) fields(l *proto.ManagedLauncher) []launcherField {
 	if l == nil {
 		l = &proto.ManagedLauncher{}

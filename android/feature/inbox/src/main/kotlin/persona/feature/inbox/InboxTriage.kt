@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -52,6 +53,10 @@ data class InboxTriageSource(
     val state: String = "",
     val reason: String? = null,
     val waiting: Int = 0,
+    /** timeout | rate_limited | failed: the hub could not read it this round, so its items are the last round's. */
+    @SerialName("read_error") val readError: String? = null,
+    /** That, for people, in the hub's words. */
+    @SerialName("read_reason") val readReason: String? = null,
 )
 
 /** The banner's words, and whether it offers "Set up" (the model is not set up). */
@@ -82,6 +87,20 @@ internal object InboxTriageText {
         return InboxTriageBanner(if (reason.isNotEmpty()) res.getString(R.string.inbox_triage_with_reason, waitingText, reason) else waitingText,
             configure = triage.state == "unconfigured")
     }
+
+    /**
+     * The sources the hub could not read this round (#1849, `read_error`): their items are the last round's, so the list
+     * may be behind. One line each, "name: the hub's read_reason" (a plain one without), apart from the banner and its
+     * waiting count, which a failed read does not change; null once every source was read, or from an older hub.
+     */
+    fun unread(res: Resources, triage: InboxTriage?): String? = triage?.sources.orEmpty()
+        .filter { !it.readError.isNullOrBlank() }
+        .map { source ->
+            val name = source.name?.trim()?.takeIf { it.isNotEmpty() } ?: source.source
+            val reason = source.readReason?.trim()?.takeIf { it.isNotEmpty() } ?: res.getString(R.string.inbox_read_failed)
+            res.getString(R.string.inbox_triage_with_reason, name, reason)
+        }
+        .takeIf { it.isNotEmpty() }?.joinToString("\n")
 }
 
 /**
@@ -91,6 +110,12 @@ internal object InboxTriageText {
 class InboxTriageSetup(val mayConfigure: suspend () -> Boolean, val configure: () -> Unit)
 
 val LocalInboxTriageSetup = staticCompositionLocalOf<InboxTriageSetup?> { null }
+
+/** The quiet line over the list naming the sources not read this round ([InboxTriageText.unread]); not dismissable. */
+@Composable
+internal fun InboxUnreadNotice(text: String, modifier: Modifier = Modifier.padding(top = Tokens.Space.s)) {
+    JNotice(text, modifier, status = Status.Unknown, icon = PhIcons.Info)
+}
 
 /**
  * The banner over the list while new items wait for triage: the design system's notice in the warning tone, not

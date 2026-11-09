@@ -8,14 +8,6 @@ import { t } from "../i18n";
 export type MouseButton = "left" | "middle" | "right";
 export type MouseAction = "down" | "up" | "drag" | "move";
 
-/** One `terminal_input.mouse` (feature `terminal_mouse`): at is [column, row], 0-based; mods are herdr's bits. */
-export interface MouseMsg {
-  action: MouseAction;
-  button: MouseButton;
-  at: [number, number];
-  mods: number;
-}
-
 /**
  * Who gets the mouse, a choice the user keeps (terminal settings › Mouse). herdr does not say whether the program in the pane takes
  * the mouse (nothing in its control stream, API or pane info shows it), so the page cannot pick per program:
@@ -39,8 +31,8 @@ export function mouseButton(button: number): MouseButton | null {
   return button === 0 ? "left" : button === 1 ? "middle" : button === 2 ? "right" : null;
 }
 
-/** herdr's modifier bits on a mouse event: shift 1, ctrl 2, alt 4 (measured, docs/integrations/terminal.md "Mouse"). */
-export const MOD_SHIFT = 1;
+/** herdr's modifier bits on a mouse event: shift 1 (never sent: Shift picks the route), ctrl 2, alt 4 (measured,
+ *  docs/integrations/terminal.md "Mouse"). */
 export const MOD_CTRL = 2;
 export const MOD_ALT = 4;
 

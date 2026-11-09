@@ -296,7 +296,7 @@ func (in *fakeInbox) answer(ctx context.Context, p AppCall) (json.RawMessage, bo
 		if raw, err = g.GroupTool(ctx, a.Call); err == nil {
 			var v any
 			_ = json.Unmarshal(raw, &v)
-			b, _ := json.Marshal(pruneAvatars(v)) // as the hub cuts it for the model (compactJSON)
+			b, _ := json.Marshal(pruneAvatars(v)) // as extmgr cuts it for the model (compactJSON)
 			out = map[string]any{"result": string(b)}
 		}
 	case assistantwire.InboxGroupFallback:

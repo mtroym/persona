@@ -72,7 +72,7 @@ func shortHome(t *testing.T) string {
 func launchEnv(home string) []string {
 	env := []string{}
 	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "PERSONA_") && !strings.HasPrefix(kv, "HOME=") {
+		if !strings.HasPrefix(kv, "PERSONA_") && !strings.HasPrefix(kv, "JARVIS_") && !strings.HasPrefix(kv, "HOME=") {
 			env = append(env, kv)
 		}
 	}

@@ -7,9 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/netip"
 	"strconv"
@@ -27,7 +25,7 @@ import (
 	"github.com/nwverse/persona/server/internal/textfmt"
 )
 
-// The small helpers the code moved here from the hub used there (the hub keeps its own copies).
+// Small helpers shared by this package's handlers.
 
 var (
 	clip    = textfmt.Clip
@@ -56,21 +54,8 @@ func writeCode(w http.ResponseWriter, status int, code, msg string, extra map[st
 	_ = json.NewEncoder(w).Encode(body)
 }
 
-func readAdminJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	b, err := io.ReadAll(io.LimitReader(r.Body, 64<<10))
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, err)
-		return false
-	}
-	if len(strings.TrimSpace(string(b))) == 0 {
-		return true
-	}
-	if err := json.Unmarshal(b, v); err != nil {
-		writeErrCode(w, http.StatusBadRequest, "bad_request", errors.New("bad JSON: "+err.Error()))
-		return false
-	}
-	return true
-}
+// readAdminJSON reads an admin page's JSON body into v (an empty body leaves v as it is).
+var readAdminJSON = apierr.ReadAdminJSON
 
 func atoi(s string) int {
 	n := 0
@@ -117,6 +102,7 @@ func mcpTool(name string) proto.Tool {
 	return proto.Tool{Name: t.Name, Description: t.Description, InputSchema: t.InputSchema}
 }
 
+// compactJSON drops media / avatar noise and cuts long answers so they fit in the model's context.
 func compactJSON(raw json.RawMessage, max int) string {
 	var v any
 	if json.Unmarshal(raw, &v) != nil {
@@ -130,7 +116,7 @@ func compactJSON(raw json.RawMessage, max int) string {
 	return string(b)
 }
 
-// prune drops what a tool result does not need (as the hub's tools do).
+// prune drops what a tool result does not need: avatars, thumbnails, highlights, emoji keys and empty values.
 func prune(v any) any {
 	switch t := v.(type) {
 	case map[string]any:

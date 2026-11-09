@@ -466,7 +466,7 @@ func TestCheckAgentSandbox(t *testing.T) {
 	}{
 		{"off", macSandbox, false, nil, DoctorOK, []string{"未开启", "本机可以开启"}},
 		{"off on linux", sandbox.Support{OS: "linux"}, false, nil, DoctorOK, []string{"未开启", "不支持"}},
-		{"on", macSandbox, true, &sandbox.AgentStatus{State: sandbox.AgentActive}, DoctorOK, []string{"已开启", "已在沙箱里", "docker", "sudo"}},
+		{"on", macSandbox, true, &sandbox.AgentStatus{State: sandbox.AgentActive}, DoctorOK, []string{"已开启", "已在沙箱里", "docker", "sudo", "herdr", "personad launch"}},
 		{"on on linux", sandbox.Support{OS: "linux"}, true, nil, DoctorWarn, []string{"不支持"}},
 		{"on without sandbox-exec", sandbox.Support{OS: "darwin", Why: "机器上没有 sandbox-exec"}, true, nil, DoctorWarn, []string{"工具不可用", "sandbox-exec"}},
 		{"a start skipped", macSandbox, true, &sandbox.AgentStatus{State: sandbox.AgentSkipped, Why: "Claude 开了自带 sandbox"}, DoctorWarn, []string{"跳过", "Claude 开了自带 sandbox"}},
