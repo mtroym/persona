@@ -179,7 +179,8 @@ func (s *Service) feedItem(ctx context.Context, id string) (*FeedItem, error) {
 func (s *Service) activeTasks(ctx context.Context) []prompts.InboxTask {
 	var out []prompts.InboxTask
 	for _, t := range s.snapshotTasks(ctx, "") {
-		if t.State == taskStateLabel("done") || t.State == taskStateLabel("auto_done") || t.State == taskStateLabel("failed") {
+		if t.State == taskStateLabel("done") || t.State == taskStateLabel("auto_done") || t.State == taskStateLabel("failed") ||
+			t.State == taskStateLabel("cancelled") {
 			continue
 		}
 		out = append(out, prompts.InboxTask{ID: t.ID, Title: t.Title, State: t.State, Last: t.Last})

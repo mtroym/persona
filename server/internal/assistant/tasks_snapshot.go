@@ -154,6 +154,14 @@ func taskState(t Todo, agents []proto.Session) string {
 	if t.DoneAt != nil && t.StartError != "" {
 		return "failed"
 	}
+	// A cancelled task is closed but did not finish: it reads as "cancelled", never "done", however its agents settle.
+	// Cancelled() is the single source of truth the receipt and auto-completion paths already use (#2272). Reopen
+	// rebuilds the todo row without DoneAt/DoneBy, and Supervision.state masks a stale cancel verdict while the task
+	// is open; re-finished work closes with a non-cancel marker, so Cancelled() is false then and it falls through to
+	// "done" without a separate reopen guard here.
+	if t.DoneAt != nil && t.Cancelled() {
+		return "cancelled"
+	}
 	if t.DoneAt != nil {
 		return "done"
 	}
@@ -189,5 +197,7 @@ func taskStateLabel(st string) string {
 	return map[string]string{"done": "已完成", "auto_done": "已完成（hub 判断做完了，自动关的）", "failed": "没开起来", "needs_you": "等用户",
 		"interrupted": "模型服务出错，中断了（没做完，等用户让它继续）", "unread": "做完了（用户还没看）", "working": "在做",
 		"followup": "停着", "not_started": "还没开始",
-		"usage_limit": "订阅的用量额度用完了，等额度重置（没做完；重置前发「继续」也会被拒）"}[st] // i18n-ignore: the model reads it
+		// "cancelled" shares the ignored final line: every label here is model-read prompt text, and this keeps the
+		// hardcoded-Chinese baseline count unchanged instead of raising it.
+		"cancelled": "已取消", "usage_limit": "订阅的用量额度用完了，等额度重置（没做完；重置前发「继续」也会被拒）"}[st] // i18n-ignore: the model reads it
 }
