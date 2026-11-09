@@ -105,6 +105,49 @@ class DefaultBranchShTestCase(unittest.TestCase):
         result = self.run_helper('persona_fetch_default_branch main')
         self.assertNotEqual(result.returncode, 0, "a missing remote must make the fetch fail, not silently pass")
 
+    def linked_worktree_count(self):
+        out = subprocess.run([GIT, "worktree", "list", "--porcelain"], cwd=self.clone, env=self.env,
+                             capture_output=True, text=True, timeout=30)
+        return sum(1 for line in out.stdout.splitlines() if line.startswith("worktree ")) - 1  # first entry is main
+
+    def test_unreachable_remote_fails_without_leaving_a_worktree(self):
+        # Runs without `set -e`: the function must propagate the fetch failure itself instead of ending on printf's 0.
+        wt = self.base / "gone-wt"
+        self.git(self.clone, "remote", "set-url", "origin", str(self.base / "missing.git"))
+        result = self.run_helper('persona_detached_worktree %s' % shlex.quote(str(wt)))
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(wt.exists(), "a failed fetch must not create a worktree")
+        self.assertEqual(self.linked_worktree_count(), 0)
+
+    def test_an_occupied_repo_subdir_fails_and_never_detaches_the_main_checkout(self):
+        # The old --is-inside-work-tree guard treated any repo subdir as a reusable worktree and detached the developer's
+        # own checkout. A non-empty subdir must now be refused, leaving the main checkout on its branch.
+        sub = self.clone / "subdir"
+        sub.mkdir()
+        (sub / "keep.txt").write_text("mine")
+        branch_before = self.git(self.clone, "symbolic-ref", "HEAD")
+        result = self.run_helper('persona_detached_worktree %s' % shlex.quote(str(sub)))
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.git(self.clone, "symbolic-ref", "HEAD"), branch_before,
+                         "the main checkout must stay on its branch, not be detached")
+        self.assertEqual((sub / "keep.txt").read_text(), "mine")
+        self.assertEqual(self.linked_worktree_count(), 0)
+
+    def test_the_main_checkout_root_is_not_reused_as_a_linked_worktree(self):
+        branch_before = self.git(self.clone, "symbolic-ref", "HEAD")  # refs/heads/main
+        result = self.run_helper('persona_detached_worktree %s' % shlex.quote(str(self.clone)))
+        self.assertNotEqual(result.returncode, 0, "the main working tree must not be detached via the reuse path")
+        self.assertEqual(self.git(self.clone, "symbolic-ref", "HEAD"), branch_before)
+
+    def test_an_occupied_non_git_target_fails_cleanly(self):
+        target = self.base / "occupied"
+        target.mkdir()
+        (target / "file.txt").write_text("keep me")
+        result = self.run_helper('persona_detached_worktree %s' % shlex.quote(str(target)))
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((target / "file.txt").read_text(), "keep me", "the occupied directory must be untouched")
+        self.assertEqual(self.linked_worktree_count(), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
