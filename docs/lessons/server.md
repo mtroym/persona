@@ -1406,3 +1406,7 @@ When adding scalars beside an embedded session DTO, account for its custom JSON 
 ## Catalog recipes carry opaque tool argument keys (#2037)
 
 A catalog's recipe contains the upstream tool's argument object. Protocol field names are snake_case, but argument and input-schema keys belong to that tool and may be camelCase. Keep both opaque to the recursive wire-key check, while still validating their object shape and the surrounding recipe. Check original JSON before decoding optional limits or generated recipe types; otherwise mistyped fields and explicit zero values can disappear before semantic validation.
+
+## Private frames cannot carry a manager's resume cursor (#2354)
+
+Targeted extension UI frames bypass the event log, so the broadcast sanitizer never sees them. Strip the top-level `event_seq` at that relay boundary too; nested page data remains the source's. Test actual delivery and recipient restrictions together, including authenticated manager attribution, and keep private frames out of the global log.

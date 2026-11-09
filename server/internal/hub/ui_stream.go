@@ -106,6 +106,8 @@ func init() {
 			if json.Unmarshal(target.Envelope, &envelope) != nil {
 				return
 			}
+			// Private stream frames skip the event log; only the hub owns the resume cursor.
+			delete(envelope, "event_seq")
 			envelope["manager"], _ = json.Marshal(bus.managerID())
 			raw, err := json.Marshal(envelope)
 			if err == nil {
