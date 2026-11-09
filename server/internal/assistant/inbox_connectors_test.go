@@ -182,6 +182,41 @@ func TestConnectorThingReadElsewhere(t *testing.T) {
 	}
 }
 
+// A thing older than the open item's newest move says nothing of whether that move was read: a GitHub connector that
+// restarted after the CI follow-up folded in a later run (one GitHub sent no notification of) reports the item's
+// older notification read on GitHub. The item at the later run stays unread and open, whatever its tier (#2207
+// review); the same move read elsewhere still counts.
+func TestConnectorOlderThingReadLeavesTheNewerMoveUnread(t *testing.T) {
+	for _, tier := range []connector.Tier{TierAction, TierFYI} {
+		t.Run(string(tier), func(t *testing.T) {
+			h := newInboxHub(t)
+			now := time.Now()
+			notified, later := now.Add(-3*time.Hour), now.Add(-time.Hour)
+			ci := func(at time.Time, read bool) connector.InboxThing {
+				th := thing(at.UTC().Format(time.RFC3339), at)
+				th.Thread, th.Kind, th.Tier, th.Read = "ci:example-org/example-repo@main", "ci_failed", tier, read
+				return th
+			}
+			h.inbox.mu.Lock()
+			defer h.inbox.mu.Unlock()
+			h.inbox.applyConnector("example", "Example", []connector.InboxThing{ci(notified, false)}, now)
+			h.inbox.applyConnector("example", "Example", []connector.InboxThing{ci(later, false)}, now) // the follow-up folded a later run
+			it := openItems(h)[0]
+			if it.Last != ci(later, false).Last || it.Read {
+				t.Fatalf("setup: %+v", it)
+			}
+			h.inbox.applyConnector("example", "Example", []connector.InboxThing{ci(notified, true)}, now) // after a restart
+			if it.Read || !it.open() {
+				t.Fatalf("the item at the later run (Last %s) is read %v, open %v: an older thing read on GitHub marked it", it.Last, it.Read, it.open())
+			}
+			h.inbox.applyConnector("example", "Example", []connector.InboxThing{ci(later, true)}, now)
+			if !it.Read || it.open() != (tier == TierAction) {
+				t.Fatalf("the later run itself read on GitHub: read %v, open %v", it.Read, it.open())
+			}
+		})
+	}
+}
+
 // A new move is unread even when an earlier action in the same open thread was read elsewhere.
 func TestConnectorNewMoveIsUnreadAfterReadElsewhere(t *testing.T) {
 	h := newInboxHub(t)

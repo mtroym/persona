@@ -42,7 +42,7 @@ func (n *Node) opencodeSession(a host.Agent) string {
 	if id := a.SessionID(); id != "" && runtimeIDRe.MatchString(id) {
 		return id
 	}
-	if id := n.runtimes.sessionInPane(a.PaneID); id != "" {
+	if id := n.runtimes.sessionInPane(a.PaneID, n.ownPane); id != "" {
 		return id
 	}
 	n.mu.Lock()

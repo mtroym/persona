@@ -124,6 +124,7 @@ func (n *Node) serveSock(ctx context.Context, c net.Conn) {
 		return
 	}
 	req.SessionID = n.resolveAssistantKey(req.SessionID)
+	req.Pane = n.ownPane(req.Pane)
 	// The caller going away (hook killed because the user answered in the terminal) cancels the request.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

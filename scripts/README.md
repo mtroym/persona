@@ -31,6 +31,7 @@ Use synthetic fixtures and an isolated outer HOME for script tests. Server tests
 ```sh
 n=0 failed=""
 for f in $(find scripts -name 'test_*.py' -not -path '*/node_modules/*' | sort); do
+  grep -q unittest "$f" || continue  # a verification script, not a suite: CI skips it too (scripts/ci/python-tests.py)
   n=$((n + 1))
   (cd "$(dirname "$f")" && python3 -B -m unittest -q "$(basename "$f" .py)") || failed="$failed $f"
 done

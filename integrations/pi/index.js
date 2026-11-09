@@ -18,7 +18,7 @@ import { Type } from 'typebox'
 import { envValue } from '../runtime-sdk/lib/identity.js'
 import { selfPackage } from '../runtime-sdk/index.js'
 import { piConfigPath, sharedPiGlobals } from './lib/compat.js'
-import { createPiHost, piWebOf } from './lib/pi.js'
+import { createPiHost, herdrPaneOf, piWebOf } from './lib/pi.js'
 
 const SELF = selfPackage(import.meta.url, 'persona-pi-runtime')
 
@@ -53,8 +53,9 @@ function host() {
   slot.host = createPiHost({
     SessionManager,
     web,
-    // A pi in a herdr pane: the node shows it as herdr's session (pi-web's server may run in a pane too: not it).
-    paneId: web ? undefined : process.env.HERDR_PANE_ID || undefined,
+    // A pi in a herdr pane: the node shows it as herdr's session (pi-web's server may run in a pane too: not it); a
+    // pane of a named herdr session comes with the session (herdrPaneOf).
+    paneId: web ? undefined : herdrPaneOf(process.env),
     log: (m) => { if (envValue('PERSONA_PI_DEBUG')) console.error(m) },
   }, {
     socketPath: typeof c.socket === 'string' && c.socket ? c.socket : undefined,

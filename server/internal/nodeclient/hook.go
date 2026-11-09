@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nwverse/persona/server/internal/herdr"
 	"github.com/nwverse/persona/server/internal/host"
 	"github.com/nwverse/persona/server/internal/lazyre"
 	"github.com/nwverse/persona/server/internal/procinfo"
@@ -17,10 +18,12 @@ import (
 
 // The environment the engines give a pane's processes, naming the pane (node/host*.go set and read the same names).
 const (
-	HerdrPaneEnv      = "HERDR_PANE_ID"   // classic herdr
-	HerdrCorePaneEnv  = "HC_TERMINAL_ID"  // herdr-core (Herdr App)
-	OrcaPaneEnv       = "ORCA_PANE_KEY"   // Orca
-	OrcaLegacyPaneEnv = "ORCA_AGENT_PANE" // older Orca
+	HerdrPaneEnv      = "HERDR_PANE_ID"     // classic herdr
+	HerdrSessionEnv   = "HERDR_SESSION"     // classic herdr: the named session the pane is in (none: the default server)
+	HerdrSocketEnv    = "HERDR_SOCKET_PATH" // classic herdr: its server's socket, in the session's directory
+	HerdrCorePaneEnv  = "HC_TERMINAL_ID"    // herdr-core (Herdr App)
+	OrcaPaneEnv       = "ORCA_PANE_KEY"     // Orca
+	OrcaLegacyPaneEnv = "ORCA_AGENT_PANE"   // older Orca
 )
 
 // GlobalHookFlag marks the report-only entries the node puts in the user's own Claude Code settings
@@ -33,11 +36,13 @@ const GlobalHookFlag = "--persona-global"
 const HomeFlag = "--persona-home"
 
 // HookPane is the pane a hook runs in, from its environment, as a stored PaneRef: herdr's HERDR_PANE_ID as it always
-// was, else herdr-core's HC_TERMINAL_ID ("herdr-core:t7"), else Orca's ORCA_PANE_KEY (or its older ORCA_AGENT_PANE:
-// "orca:<tabId>:<leafId>"); "" in none.
+// was in the default server, qualified with its session in a named one ("@<session>:w4:p1", herdr.PaneOf, #2196),
+// else herdr-core's HC_TERMINAL_ID ("herdr-core:t7"), else Orca's ORCA_PANE_KEY (or its older ORCA_AGENT_PANE:
+// "orca:<tabId>:<leafId>"); "" in none. A node whose own herdr server is a named session writes its panes the other
+// way round and translates (node ownPane).
 func HookPane(getenv func(string) string) string {
 	if p := getenv(HerdrPaneEnv); p != "" {
-		return p
+		return herdr.PaneOf(p, herdr.EnvSession(getenv), "")
 	}
 	if t := getenv(HerdrCorePaneEnv); t != "" {
 		return host.PaneRef{Kind: host.HerdrCore, ID: t}.String()

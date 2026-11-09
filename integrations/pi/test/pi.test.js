@@ -5,7 +5,7 @@ import { mkdtempSync, readlinkSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { startFakeNode, until } from '../../runtime-sdk/testing/fake-node.js'
 import { packageHash } from '../../runtime-sdk/lib/package.js'
-import { createPiHost, piWebOf } from '../lib/pi.js'
+import { createPiHost, herdrPaneOf, piWebOf } from '../lib/pi.js'
 
 /** A pi session manager over entries (file order); the branch runs from the leaf back through parentId. */
 function sessionManager(id, cwd, entries = [], name = '') {
@@ -576,4 +576,15 @@ test('a package whose files do not match its hash is not installed', async (t) =
   assert.throws(() => readlinkSync(join(dir, 'current')))
   assert.equal(a.pi.sent.length, 0)
   assert.equal(host.retired, false)
+})
+
+test('the herdr pane comes with its named session', () => {
+  assert.equal(herdrPaneOf({}), undefined)
+  assert.equal(herdrPaneOf({ HERDR_PANE_ID: 'w4:p1' }), 'w4:p1')
+  assert.equal(herdrPaneOf({ HERDR_PANE_ID: 'w4:p1', HERDR_SESSION: 'default' }), 'w4:p1')
+  assert.equal(herdrPaneOf({ HERDR_PANE_ID: 'w4:p1', HERDR_SESSION: 'build' }), '@build:w4:p1')
+  assert.equal(herdrPaneOf({ HERDR_PANE_ID: 'w4:p1', HERDR_SOCKET_PATH: '/h/.config/herdr/sessions/build/herdr.sock' }), '@build:w4:p1')
+  assert.equal(herdrPaneOf({ HERDR_PANE_ID: 'w4:p1', HERDR_SOCKET_PATH: '/h/.config/herdr/herdr.sock' }), 'w4:p1')
+  assert.equal(herdrPaneOf({ HERDR_PANE_ID: 'w4:p1', HERDR_SOCKET_PATH: '/h/.config/herdr/sessions/a b/herdr.sock' }), 'w4:p1')
+  assert.equal(herdrPaneOf({ HERDR_PANE_ID: 'w4:p1', HERDR_SOCKET_PATH: '/h/.config/herdr/sessions/../herdr.sock' }), 'w4:p1')
 })

@@ -1,7 +1,8 @@
 package proto
 
 // Workspace describes a host space independently of the agents running in it.
-// Node IDs are host-local; the hub qualifies them by machine and source.
+// Node IDs are host-local (classic herdr's also per herdr session, herdr.QualifyID); the hub qualifies them by machine and
+// source.
 type Workspace struct {
 	ID        string `json:"id"`
 	MachineID string `json:"machine_id,omitempty"`

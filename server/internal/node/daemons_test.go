@@ -292,7 +292,7 @@ func TestDaemonIsARuntimeUnderTheConfigNames(t *testing.T) {
 		t.Fatalf("an invalid id was listed: %v", listed(t, n))
 	}
 	h := daemonConn(rh, "acme")
-	if h == nil || len(h.resumeArgv("acme.s1")) != 0 || rh.reg.sessionInPane("w1:p1") != "" {
+	if h == nil || len(h.resumeArgv("acme.s1")) != 0 || rh.reg.sessionInPane("w1:p1", func(p string) string { return p }) != "" {
 		t.Fatal("a daemon's resume_argv or pane was kept")
 	}
 	h.mu.Lock()

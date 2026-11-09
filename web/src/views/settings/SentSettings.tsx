@@ -1,4 +1,4 @@
-// Settings › Sent as you (#5278, docs/extensions/connectors.md "Sent as the user", docs/web/web.md "Settings"): what Persona wrote in the
+// Settings › Connectors › Records sent as you (#2412, docs/extensions/connectors.md "Sent as the user", docs/web/web.md "Settings"): what Persona wrote in the
 // user's name through the connectors, newest first, from GET /api/v1/connectors/sent. A row: the connector, where it went,
 // how long ago, the first lines of what it said and how the gate let it through (a rule, "always allow" in the chat, the
 // card on the phone, the assistant answering that card, or the extension sending on its own) with the chat that asked,

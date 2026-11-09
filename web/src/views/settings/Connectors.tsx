@@ -19,7 +19,9 @@ import { Count, Monogram } from "../inbox/InboxParts";
 import { ConnectorDetail, ConnectorList } from "./HubConnector";
 import { LarkDisplaySettings } from "./LarkDisplaySettings";
 import { LarkHomeSwitch } from "./LarkHomeSwitch";
-import { Group, Pill, RowConfirm } from "./SettingsParts";
+import { Group, Pill, Row, RowConfirm } from "./SettingsParts";
+import { SentSettings } from "./SentSettings";
+import { SENT_SUB } from "./nav";
 import { FeishuBot } from "./FeishuBot";
 
 interface LarkStatus {
@@ -37,6 +39,13 @@ export function Connectors({ open, onOpen, onChannel }: { open: string | null; o
   const lark = useLarkOn();
   // "feishu-bot" is not a hub connector: FeishuBot reads it and opens its own dialog.
   // `<id>@<manager>`: another manager's connector, opened from its extension's page (docs/assistant/managers.md "Clients")
+  if (open === SENT_SUB) return (
+    <>
+      <Button tone="quiet" icon="chevronLeft" onClick={() => onOpen(null)} className="-ml-2 mb-3">{t("settings-hubconnector.back")}</Button>
+      <h2 className="mb-2 px-1 text-[15px] font-semibold text-ink">{t("settings-sent.entry_label")}</h2>
+      <SentSettings />
+    </>
+  );
   if (open && open !== "feishu-bot") {
     const { id, manager } = parseOwnedSub(open);
     return <ConnectorDetail key={open} id={id} manager={manager} onBack={() => onOpen(null)} onChannel={onChannel} />;
@@ -50,6 +59,9 @@ export function Connectors({ open, onOpen, onChannel }: { open: string | null; o
       {lark && <Feishu />}
       <FeishuBot onChannel={onChannel} />
       {hasConnectors && <ConnectorList onOpen={onOpen} />}
+      <Group anchor="sent">
+        <Row icon="send" label={t("settings-sent.entry_label")} hint={t("settings-sent.hint")} onClick={() => onOpen(SENT_SUB)} />
+      </Group>
     </>
   );
 }

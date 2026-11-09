@@ -61,6 +61,25 @@ struct PushCryptoTests {
         #expect(content.interruptionLevel == .timeSensitive)
     }
 
+    /// The relay's fallback always rings (its own aps has "sound":"default"); once opened, the sealed aps decides. This
+    /// vector has no sound, as a `notify --silent` or a push hushed in quiet hours has none.
+    @Test func aSealedPushWithoutASoundIsQuiet() {
+        let fallback = UNMutableNotificationContent()
+        fallback.body = "有新消息"
+        fallback.sound = .default
+        fallback.userInfo = push
+        let (shown, outcome) = PushCrypto.service(fallback, key: { key }, now: Self.sealedAt)
+        #expect(outcome == .opened)
+        #expect(shown.body == "要继续吗？")
+        #expect(shown.sound == nil)
+    }
+
+    @Test func aSealedSoundRings() {
+        let content = UNMutableNotificationContent()
+        PushCrypto.apply(["aps": ["alert": ["body": "x"], "sound": "default"]], to: content)
+        #expect(content.sound != nil)
+    }
+
     @Test func roundTripWithAFreshKey() throws {
         let k = P256.KeyAgreement.PrivateKey()
         var sender = try HPKE.Sender(recipientKey: k.publicKey, ciphersuite: PushCrypto.suite, info: PushCrypto.info)

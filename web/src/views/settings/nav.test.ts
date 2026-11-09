@@ -42,6 +42,16 @@ describe("settings location", () => {
     expect(redirectLegacySettings("?tab=translate", "")).toBe("/settings?tab=general#settings-translation");
     expect(redirectLegacySettings("?tab=assistant&manager=work", "")).toBe("/settings?tab=persona&manager=work");
   });
+  it("keeps Sent out of top-level navigation and redirects both legacy URL forms", () => {
+    expect(TABS).not.toContain("sent");
+    expect(settingsAt("?tab=sent")).toEqual({ tab: "connectors", sub: "-sent", section: null });
+    expect(settingsHref("connectors", "-sent", false)).toBe("/settings?tab=connectors&connector=-sent");
+    expect(redirectLegacySettings("?tab=sent&manager=work", "")).toBe("/settings?tab=connectors&manager=work&connector=-sent");
+    for (const path of ["/settings/sent", "/settings/sent/"]) {
+      expect(redirectLegacySettings("", "", path)).toBe("/settings?tab=connectors&connector=-sent");
+    }
+    expect(redirectLegacySettings("?tab=connectors&connector=-sent", "")).toBeNull();
+  });
   it("keeps the legacy purpose in the canonical model URL", () => {
     expect(settingsAt("?tab=model-config&purpose=agent.triage&manager=work")).toEqual({ tab: "models", sub: "agent.triage", section: "model-config" });
   });
@@ -72,7 +82,7 @@ describe("settings sidebar groups", () => {
     expect(NAV_GROUPS.map((g) => g.tabs)).toEqual([
       ["general", "notifications", "shortcuts"],
       ["persona", "models", "agents"],
-      ["channels", "connectors", "sent", "extensions"],
+      ["channels", "connectors", "extensions"],
       ["devices", "hub", "managers"],
     ]);
   });
@@ -92,6 +102,13 @@ describe("settings search", () => {
   });
   it("matches a models/agents section", () => {
     expect(searchSettings("Codex").groups.some((g) => g.tab === "agents" && g.anchor === "settings-codex")).toBe(true);
+  });
+  it("finds the Sent entry under Connectors by its label and existing hint", () => {
+    for (const q of ["以你的名义发出", "为什么放行"]) {
+      const result = searchSettings(q);
+      expect(result.tabs).not.toContain("sent");
+      expect(result.groups).toContainEqual(expect.objectContaining({ tab: "connectors", anchor: "sent" }));
+    }
   });
   it("returns nothing for an unknown query", () => {
     expect(searchSettings("zzz-no-such-setting")).toEqual({ tabs: [], groups: [] });

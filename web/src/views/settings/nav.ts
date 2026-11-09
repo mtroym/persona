@@ -5,13 +5,15 @@ import { t } from "../../i18n";
 import { settingsTab } from "../../lib/channels";
 import type { IconName } from "../../ui/icons";
 
-export type Tab = "general" | "persona" | "notifications" | "models" | "agents" | "channels" | "connectors" | "sent" | "extensions" | "shortcuts" | "devices" | "hub" | "managers";
-export const TABS: Tab[] = ["general", "persona", "notifications", "models", "agents", "channels", "connectors", "sent", "extensions", "shortcuts", "devices", "hub", "managers"];
+export type Tab = "general" | "persona" | "notifications" | "models" | "agents" | "channels" | "connectors" | "extensions" | "shortcuts" | "devices" | "hub" | "managers";
+export const TABS: Tab[] = ["general", "persona", "notifications", "models", "agents", "channels", "connectors", "extensions", "shortcuts", "devices", "hub", "managers"];
 export const AGENT_KINDS = ["claude", "codex", "agy", "omp"] as const;
 export type AgentTab = (typeof AGENT_KINDS)[number];
 export type SettingsSection = "providers" | "model-config" | "translation" | AgentTab;
 // The tab whose page opens one of its items, and the query parameter that names it.
 const SUB: Partial<Record<Tab, string>> = { models: "purpose", channels: "channel", extensions: "extension", connectors: "connector" };
+/** A host-owned secondary page, not a connector ID. */
+export const SENT_SUB = "-sent";
 
 // Links from before the categories were combined keep their extra provider parameters. A fragment is the legacy
 // category's destination within its new page, so a shared link still lands on the same section.
@@ -23,6 +25,7 @@ const LEGACY_TABS: Record<string, { tab: Tab; section: SettingsSection | null }>
   omp: { tab: "agents", section: "omp" },
   translate: { tab: "general", section: "translation" },
   assistant: { tab: "persona", section: null },
+  sent: { tab: "connectors", section: null },
 };
 
 // `hint`: one short line under the category on the phone's list (#3636), so what it holds is clear without opening it.
@@ -34,7 +37,6 @@ export const TAB_INFO: Record<Tab, { label: string; icon: IconName; hint: string
   agents: { label: t("settings-nav.tab_agents"), icon: "terminal", hint: t("settings-nav.hint_agents") },
   channels: { label: t("settings-nav.tab_channels"), icon: "chat", hint: t("settings-nav.hint_channels") },
   connectors: { label: t("settings-nav.tab_connectors"), icon: "link", hint: t("settings-nav.hint_connectors") },
-  sent: { label: t("settings-nav.tab_sent"), icon: "send", hint: t("settings-nav.hint_sent") },
   extensions: { label: t("settings-nav.tab_extensions"), icon: "extension", hint: t("settings-nav.hint_extensions") },
   shortcuts: { label: t("settings-nav.tab_shortcuts"), icon: "keyboard", hint: t("settings-nav.hint_shortcuts") },
   devices: { label: t("settings-nav.tab_devices"), icon: "key", hint: t("settings-nav.hint_devices") },
@@ -46,7 +48,7 @@ export const TAB_INFO: Record<Tab, { label: string; icon: IconName; hint: string
 export const NAV_GROUPS: { title: string; tabs: Tab[] }[] = [
   { title: t("settings-nav.group_personal"), tabs: ["general", "notifications", "shortcuts"] },
   { title: t("settings-nav.group_assistant"), tabs: ["persona", "models", "agents"] },
-  { title: t("settings-nav.group_connections"), tabs: ["channels", "connectors", "sent", "extensions"] },
+  { title: t("settings-nav.group_connections"), tabs: ["channels", "connectors", "extensions"] },
   { title: t("settings-nav.group_system"), tabs: ["devices", "hub", "managers"] },
 ];
 
@@ -58,6 +60,7 @@ export interface SearchGroup {
   group: string;
   /** The `data-settings-group` marker of a Group, or the element id of a models/agents section. */
   anchor: string;
+  hint?: string;
 }
 
 /** The group headings the search box matches (a curated static index; titles are the pages' own headings). */
@@ -84,6 +87,7 @@ export const SEARCH_INDEX: SearchGroup[] = [
   // Connectors
   { tab: "connectors", group: t("settings-connectors.mail"), anchor: "mail" },
   { tab: "connectors", group: t("settings-connectors.lark"), anchor: "lark" },
+  { tab: "connectors", group: t("settings-sent.entry_label"), hint: t("settings-sent.hint"), anchor: "sent" },
   // Extensions
   { tab: "extensions", group: t("settings-extensions.title"), anchor: "extensions" },
   { tab: "extensions", group: t("settings-extensions.market_title"), anchor: "market" },
@@ -99,7 +103,7 @@ export function searchSettings(query: string): { tabs: Tab[]; groups: SearchGrou
   if (!q) return { tabs: [], groups: [] };
   return {
     tabs: TABS.filter((t) => (TAB_INFO[t].label + " " + TAB_INFO[t].hint).toLocaleLowerCase().includes(q)),
-    groups: SEARCH_INDEX.filter((g) => g.group.toLocaleLowerCase().includes(q)),
+    groups: SEARCH_INDEX.filter((g) => (g.group + " " + (g.hint ?? "")).toLocaleLowerCase().includes(q)),
   };
 }
 
@@ -112,7 +116,7 @@ export function settingsAt(search: string, hash = ""): { tab: Tab | null; sub: s
   if (!TABS.includes(t)) return { tab: null, sub: null, section: null };
   const param = SUB[t];
   // ?tab=plugins&plugin=<id>: a link from before #1845
-  const sub = param ? (q.get(param) ?? (t === "extensions" ? q.get("plugin") : null)) : null;
+  const sub = old === "sent" ? SENT_SUB : param ? (q.get(param) ?? (t === "extensions" ? q.get("plugin") : null)) : null;
   if (t === "extensions" && sub === "-channels") return { tab: "channels", sub: null, section: null };
   if (t === "extensions" && sub?.startsWith("-channels/")) return { tab: "channels", sub: sub.slice("-channels/".length), section: null };
   const section = legacy?.section ?? sectionOfHash(hash, t);
@@ -127,14 +131,16 @@ export function settingsHref(tab: Tab, id: string | null, phone: boolean, manage
   return `${tab === "general" && !phone ? "/settings" : query}${section ? `#settings-${section}` : ""}`;
 }
 
-/** Replace a combined category's old URL in place, retaining provider and manager parameters. */
-export function redirectLegacySettings(search: string, hash: string): string | null {
+/** Replace a legacy category URL in place, retaining provider and manager parameters. */
+export function redirectLegacySettings(search: string, hash: string, path = "/settings"): string | null {
   const q = new URLSearchParams(search);
+  if (path === "/settings/sent" || path === "/settings/sent/") q.set("tab", "sent");
   const old = settingsTab(q.get("tab"));
   if (!old || !LEGACY_TABS[old]) return null;
-  const at = settingsAt(search, hash);
+  const at = settingsAt(q.toString(), hash);
   if (!at.tab) return null;
   q.set("tab", at.tab);
+  if (old === "sent") q.set("connector", SENT_SUB);
   if (at.tab !== "models") q.delete("purpose");
   return `/settings?${q.toString()}${at.section ? `#settings-${at.section}` : ""}`;
 }

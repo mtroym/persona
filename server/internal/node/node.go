@@ -1254,7 +1254,11 @@ func (n *Node) handle(ctx context.Context, method string, params json.RawMessage
 	case "fs.stat":
 		return map[string]any{"stats": n.statPaths(p.Paths, p.Cwd)}, nil
 	case "space.rename":
-		return ok(n.renameSpace(ctx, p.WorkspaceID, p.Name))
+		name, err := n.renameSpace(ctx, p.WorkspaceID, p.Name)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true, "name": name}, nil
 	case "worktree.rename":
 		return ok(n.renameWorktree(ctx, p.Kind, p.WorkspaceID, p.Name))
 	case "session.rename":

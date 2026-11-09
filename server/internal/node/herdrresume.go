@@ -154,7 +154,7 @@ func (n *Node) reportResume(ctx context.Context, h *herdrHost, pane string, spec
 	if agentName == "" {
 		agentName = "claude"
 	}
-	if err := h.c.PaneReportResume(ctx, host.ParsePane(pane).ID, resumeSource, agentName, spec.ID, argv); err != nil {
+	if err := h.PaneReportResume(ctx, host.ParsePane(pane), resumeSource, agentName, spec.ID, argv); err != nil {
 		n.logf("herdr resume: %s (%s): %v", pane, spec.ID, err)
 	}
 }

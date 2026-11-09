@@ -106,8 +106,11 @@ type Connector struct {
 	// does not lift it.
 	pausedUntil time.Time
 	// pauseStep: the length of the last pause notePause chose itself (GitHub named no time), doubled while the limit
-	// keeps coming back right after a pause.
+	// keeps coming back right after it.
 	pauseStep time.Duration
+	// backoffUntil: the end of that pause, kept apart from pausedUntil, which pauses GitHub names (Retry-After,
+	// X-RateLimit-Reset) move too.
+	backoffUntil time.Time
 
 	inbox inboxState   // inbox.go
 	opts  InboxOptions // rules.go
@@ -150,7 +153,7 @@ func (c *Connector) noteRate(h http.Header) {
 }
 
 // How long notePause pauses when GitHub names no time: at least a minute, doubling (up to pauseLongest) while the
-// limit comes back right after a pause.
+// limit comes back right after such a pause.
 var (
 	pauseFirst   = time.Minute
 	pauseLongest = time.Hour
@@ -158,10 +161,13 @@ var (
 
 // notePause records the pause GitHub asks for with a rate limit (429, or 403 with "rate limit", Retry-After or
 // X-RateLimit-Remaining 0), as GitHub's docs say: until Retry-After (seconds or an HTTP date); else, with the hour's
-// core requests used up (X-RateLimit-Remaining 0), until X-RateLimit-Reset; else for pauseFirst, doubled when the
-// last pause ended less than its own length ago. X-RateLimit-Reset alone says nothing: every answer carries the
-// core quota's, a secondary limit's too. Another quota used up (search) is no pause: noteRate keeps it apart.
-// It only extends a pause, never shortens one; err is the request's error, h its answer's headers.
+// core requests used up (X-RateLimit-Remaining 0), until X-RateLimit-Reset; else for pauseFirst, doubled while the
+// limit keeps coming back: within one step of the end of the last pause it chose itself (backoffUntil). A pause
+// GitHub named is none of its steps, and answers in between do not end the backoff (a poll's first page is often
+// answered before its next read runs into the limit again); only a quiet step does. X-RateLimit-Reset alone says
+// nothing: every answer carries the core quota's, a secondary limit's too. Another quota used up (search) is no
+// pause: noteRate keeps it apart. It only extends a pause, never shortens one; err is the request's error, h its
+// answer's headers.
 func (c *Connector) notePause(h http.Header, err error) {
 	message := strings.ToLower(err.Error())
 	usedUp := h.Get("X-RateLimit-Remaining") == "0"
@@ -187,10 +193,10 @@ func (c *Connector) notePause(h http.Header, err error) {
 			return // already paused: another read ran into the same limit
 		}
 		step := pauseFirst
-		if c.pauseStep > 0 && now.Before(c.pausedUntil.Add(c.pauseStep)) {
+		if c.pauseStep > 0 && now.Before(c.backoffUntil.Add(c.pauseStep)) {
 			step = min(2*c.pauseStep, pauseLongest)
 		}
-		c.pauseStep, until = step, now.Add(step)
+		c.pauseStep, c.backoffUntil, until = step, now.Add(step), now.Add(step)
 	}
 	if until.After(c.pausedUntil) {
 		c.pausedUntil = until

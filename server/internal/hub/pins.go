@@ -158,9 +158,15 @@ func (h *Hub) renameSpace(w http.ResponseWriter, r *http.Request, m *Machine) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	if err := m.call(ctx, "space.rename", map[string]any{"workspace_id": wid, "name": name}, nil); err != nil {
+	var res struct {
+		Name string `json:"name"`
+	}
+	if err := m.call(ctx, "space.rename", map[string]any{"workspace_id": wid, "name": name}, &res); err != nil {
 		callErr(w, err)
 		return
+	}
+	if res.Name != "" { // the name the space shows now (a named herdr session's has the session in front); older nodes say none
+		name = res.Name
 	}
 	if old != "" && old != name {
 		// A todo linked to it by name follows (the manager's; not while it is not connected).

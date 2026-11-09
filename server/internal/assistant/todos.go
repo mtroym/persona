@@ -59,14 +59,14 @@ type Todo struct {
 	StartError string `json:"start_error,omitempty"`
 	// DoneBy is "auto" for the hub's completion judgment, "review" for supervisor acceptance, or "cancelled" for
 	// cancellation, with DoneReason; ReopenedAt: when it was last reopened after it was done.
-	DoneBy     string      `json:"done_by,omitempty"`
-	DoneReason string      `json:"done_reason,omitempty"`
-	ReopenedAt *time.Time  `json:"reopened_at,omitempty"`
+	DoneBy     string     `json:"done_by,omitempty"`
+	DoneReason string     `json:"done_reason,omitempty"`
+	ReopenedAt *time.Time `json:"reopened_at,omitempty"`
 	// CancelledAt: when the task was cancelled; CancelledReason: why it was cancelled (#2272).
-	CancelledAt     *time.Time `json:"cancelled_at,omitempty"`
-	CancelledReason string     `json:"cancelled_reason,omitempty"`
+	CancelledAt     *time.Time  `json:"cancelled_at,omitempty"`
+	CancelledReason string      `json:"cancelled_reason,omitempty"`
 	Spaces          []TodoSpace `json:"spaces"`
-	Agents     []TodoAgent `json:"agents"`
+	Agents          []TodoAgent `json:"agents"`
 	// Quiet: a task from the main conversation while assistant.main_tasks_quiet was on (#1731,
 	// docs/assistant/unified-entry.md "Quiet tasks"): no pushes, Live Activity or task badges for its agents; the main
 	// conversation is told instead (quiet.go). Set when it is made, never changed.

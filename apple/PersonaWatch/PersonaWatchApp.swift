@@ -347,9 +347,15 @@ final class WatchModel {
     }
 
     func interrupt(_ key: SessionKey) async {
-        guard sessions.first(where: { $0.key == key })?.canInterrupt == true else { return }
-        try? await api(key.group)?.interrupt(key)
-        WKInterfaceDevice.current().play(.stop)
+        guard sessions.first(where: { $0.key == key })?.canInterrupt == true, let api = api(key.group) else { return }
+        // The stop haptic says the Agent stopped, so it plays only once the hub accepts the interrupt.
+        do {
+            try await api.interrupt(key)
+            WKInterfaceDevice.current().play(.stop)
+        } catch {
+            self.error = error.watchShown
+            WKInterfaceDevice.current().play(.failure)
+        }
     }
 
     func machine(_ ref: MachineRef) -> Machine? { machines.first { $0.ref == ref } }

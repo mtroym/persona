@@ -178,6 +178,11 @@ Don't add a `pending.json` field for it: older edges and watchdogs read the same
 - Node identity revisions and installation generations must use Postgres timestamp precision before the first bind. Raw Go nanoseconds are truncated to microseconds on storage; after a reload, a node would reject that lower revision or mistake the installation time for a new generation. Normalize both fields and test before/after database precision, not only whole-second fixtures.
 - Persistent hook ownership must remain recognizable to the rollback binary. Stop and join the old process's heartbeat and cleanup before starting the replacement; a late cleanup can remove the new hook even when the database migration is correct.
 
+
+## Private frames cannot carry a manager's resume cursor (#2354)
+
+Targeted extension UI frames bypass the event log, so the broadcast sanitizer never sees them. Strip the top-level `event_seq` at that relay boundary too; nested page data remains the source's. Test actual delivery and recipient restrictions together, including authenticated manager attribution, and keep private frames out of the global log.
+
 ## Mail account writes publish only committed candidates (#1302)
 
 Whole-account snapshots need one guard covering candidate capture, storage and publication across adds, OAuth
@@ -1407,6 +1412,6 @@ When adding scalars beside an embedded session DTO, account for its custom JSON 
 
 A catalog's recipe contains the upstream tool's argument object. Protocol field names are snake_case, but argument and input-schema keys belong to that tool and may be camelCase. Keep both opaque to the recursive wire-key check, while still validating their object shape and the surrounding recipe. Check original JSON before decoding optional limits or generated recipe types; otherwise mistyped fields and explicit zero values can disappear before semantic validation.
 
-## Private frames cannot carry a manager's resume cursor (#2354)
+## Bound read-state snapshots by recorded entries (#2400)
 
-Targeted extension UI frames bypass the event log, so the broadcast sanitizer never sees them. Strip the top-level `event_seq` at that relay boundary too; nested page data remains the source's. Test actual delivery and recipient restrictions together, including authenticated manager attribution, and keep private frames out of the global log.
+When decorating a large session list, reserve the timestamp snapshot by the smaller of the list and the recorded read-state table, under the same lock used to copy it. Reserving for every row wastes memory when few or no sessions have been read. The unchanged isolated publication budget can expose this cost even after workspace discovery allocations are fixed; identify the failing subcase rather than treating all session-reader failures as the same regression. Keep the original budgets and seen-state semantics.

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -168,7 +170,7 @@ func TestPauseBacksOff(t *testing.T) {
 	}
 	ended := func(ago time.Duration) {
 		c.mu.Lock()
-		c.pausedUntil = time.Now().Add(-ago)
+		c.pausedUntil, c.backoffUntil = time.Now().Add(-ago), time.Now().Add(-ago)
 		c.mu.Unlock()
 	}
 	near := func(got, want time.Duration) bool { return got > want-2*time.Second && got <= want }
@@ -194,5 +196,64 @@ func TestPauseBacksOff(t *testing.T) {
 	ended(2 * time.Hour)
 	if got := limit(); !near(got, time.Minute) {
 		t.Fatalf("long after the last pause: %s, want a minute", got)
+	}
+}
+
+// The backoff doubles only while the limit keeps coming back right after a pause it chose itself (#2149): a pause
+// GitHub named (Retry-After) is not one of its steps, and three quiet hours end it.
+func TestPauseBackoffIgnoresGitHubsPauses(t *testing.T) {
+	c := healthyGitHub(t)
+	c.mu.Lock()
+	c.pauseStep, c.pausedUntil = time.Hour, time.Now().Add(-3*time.Hour) // the step reached an hour, three quiet hours ago
+	c.mu.Unlock()
+	c.notePause(retryAfter("60"), secondaryLimit)
+	c.mu.Lock()
+	c.pausedUntil = time.Now().Add(-time.Second) // GitHub's pause ended a second ago
+	c.mu.Unlock()
+	c.notePause(http.Header{}, secondaryLimit)
+	if left := c.pauseLeft(); left < time.Minute-2*time.Second || left > time.Minute {
+		t.Fatalf("a limit without Retry-After after three quiet hours pauses for %s, want a minute", left)
+	}
+}
+
+// A secondary limit that comes back right after every pause keeps doubling it, though each poll's first page is
+// answered before a thread's details run into the limit again: GitHub asks for longer and longer waits while it
+// lasts, and an answer in between does not mean it is over (#2207 review).
+func TestPauseBackoffGrowsWhileTheLimitComesBack(t *testing.T) {
+	var mu sync.Mutex
+	at := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		w.Header().Set("X-RateLimit-Limit", "5000")
+		w.Header().Set("X-RateLimit-Remaining", "4000")
+		switch r.URL.Path {
+		case "/user":
+			_, _ = w.Write([]byte(`{"login":"me"}`))
+		case "/notifications":
+			_, _ = w.Write([]byte("[" + note("7", "assign", "Issue", "https://api.github.com"+api7, at.Format(time.RFC3339)) + "]"))
+		default: // every thread's details run into a secondary limit GitHub names no time for
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"message":"You have exceeded a secondary rate limit."}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := New(Config{Auth: AuthConfig{FromMachine: "mac"}}, "Mac", (&machine{tokens: []string{oldToken}}).fetch)
+	c.api = srv.URL
+	c.check(context.Background())
+	var got []time.Duration
+	for range 4 {
+		mu.Lock()
+		at = at.Add(time.Minute) // a new move on #7: its details are read again
+		mu.Unlock()
+		pollOnce(t, c)
+		got = append(got, c.pauseLeft().Round(time.Second))
+		c.mu.Lock() // the pause runs out: the next poll comes a second after it
+		shift := time.Until(c.pausedUntil) + time.Second
+		c.pausedUntil, c.backoffUntil = c.pausedUntil.Add(-shift), c.backoffUntil.Add(-shift)
+		c.mu.Unlock()
+	}
+	if want := []time.Duration{time.Minute, 2 * time.Minute, 4 * time.Minute, 8 * time.Minute}; !slices.Equal(got, want) {
+		t.Fatalf("pauses %v, want %v: the limit came back right after every pause", got, want)
 	}
 }

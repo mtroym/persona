@@ -659,7 +659,9 @@ const (
 // answered, and drops one that can never be sent; it does not remove a sent one.
 func (n *Node) replayNotify(ctx context.Context, sp *spool, e spoolEntry) notifyOutcome {
 	cctx, cancel := context.WithTimeout(ctx, replayNotifyTimeout)
-	rep, err := n.notifyCall(cctx, e.Request, e.ID)
+	req := e.Request
+	req.Pane = n.ownPane(req.Pane) // kept as the client sent it (serveSock translates live ones)
+	rep, err := n.notifyCall(cctx, req, e.ID)
 	timedOut := cctx.Err() != nil && ctx.Err() == nil
 	cancel()
 	if err == nil && rep.Error != "" { // refused before the manager was asked (empty, not JSON): never sendable
@@ -776,6 +778,7 @@ func (n *Node) retryNotificationsOnce(ctx context.Context, sp *spool) (again boo
 // that standby answered: no card, it is long over or asks again by itself.
 func (n *Node) replayHook(e spoolEntry) error {
 	req := e.Request
+	req.Pane = n.ownPane(req.Pane)
 	var in hookInput
 	if json.Unmarshal(req.Input, &in) != nil {
 		return nil

@@ -2,7 +2,7 @@ package proto
 
 // PanesResponse is a machine's terminal host layout for the terminal browser (docs/integrations/terminal.md "Standalone terminal"): every
 // workspace, tab and pane of each host, agent or plain shell. It is read from the snapshot the node already takes;
-// ids are host-local.
+// ids are host-local (classic herdr's also per herdr session: a named session's are "@<session>:<id>", herdr.QualifyID).
 type PanesResponse struct {
 	Hosts []PaneHost `json:"hosts"`
 }

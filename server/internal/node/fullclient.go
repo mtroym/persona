@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nwverse/persona/server/internal/herdr"
 	"github.com/nwverse/persona/server/internal/host"
 	"github.com/nwverse/persona/server/internal/rpc"
 )
@@ -63,6 +64,10 @@ type fullClient struct {
 	// leaseFor is fullLease when the client opened: watch outlives the call that opened it, so it does not read the
 	// package variable again.
 	leaseFor time.Duration
+
+	// session is the herdr session the client is attached to ("" the own server): it shows that server's panes only
+	// (#2196, focusSession).
+	session string
 }
 
 var errNoFullClient = fmt.Errorf("%w: this machine has no host that can run a full client (herdr on Linux or macOS)", host.ErrUnsupported)
@@ -109,6 +114,9 @@ func (n *Node) fullOpen(ctx context.Context, params json.RawMessage) (any, error
 	cctx, cancel := context.WithCancel(context.Background())
 	f := &fullClient{n: n, id: a.ClientID, ctx: cctx, end: cancel, in: make(chan []byte, fullInputQueue),
 		acked: make(chan struct{}, 1), gone: make(chan struct{}), lease: time.Now(), leaseFor: fullLease}
+	if opts.Pane != nil && opts.Pane.Kind == host.Herdr {
+		f.session, _ = herdr.SplitID(opts.Pane.ID)
+	}
 	n.mu.Lock()
 	switch {
 	case n.fulls[f.id] != nil:

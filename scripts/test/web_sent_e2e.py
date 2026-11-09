@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""End-to-end check of Settings › Sent as you (#5278, docs/web/web.md "Settings", docs/extensions/connectors.md "Sent as the user"): the
-tab and its place on the phone's list, the rows (where, the first two lines, how each was let through, who asked), a chat
+"""End-to-end check of Settings › Connectors › Records sent as you (#2412, docs/web/web.md "Settings", docs/extensions/connectors.md "Sent as the user"): the
+secondary entry, legacy redirects and back navigation, the rows (where, the first two lines, how each was let through, who asked), a chat
 link, Load earlier, the connector chips and the empty state under one, the details (every field, a text of exactly 4000
 characters noted as cut, copy), and the other states (an empty ledger, no database, no full access, an older hub), at
 wide and phone width.
@@ -64,7 +64,7 @@ def login(page, base):
 
 def open_sent(page, base):
     login(page, base)
-    page.goto(f"{base}/settings?tab=sent")
+    page.goto(f"{base}/settings?tab=connectors&connector=-sent")
 
 
 def ids(rows):
@@ -75,17 +75,29 @@ def wide(browser, base, hub):
     context, page, errors = new_page(browser, WIDE, "light", "zh-Hans")
     main = page.locator("main")
     try:
-        # the tab is in the bar, after Connectors
         login(page, base)
-        page.goto(f"{base}/settings")
+        page.goto(f"{base}/settings?tab=connectors")
         nav = main.get_by_role("navigation", name="设置分类")
-        tab = nav.get_by_role("button", name="以你的名义发出", exact=True)
-        expect(tab).to_be_visible()
-        labels = [x.strip() for x in nav.get_by_role("button").all_text_contents()]
-        assert labels.index("以你的名义发出") == labels.index("连接器") + 1, labels
-        tab.click()
-        expect(page).to_have_url(base + "/settings?tab=sent")
-        ok("the tab 以你的名义发出 sits right after 连接器 and opens ?tab=sent")
+        expect(nav.get_by_role("button", name="以你的名义发出", exact=True)).to_have_count(0)
+        entry = main.locator('[data-settings-group="sent"]')
+        expect(entry).to_contain_text("以你的名义发出过什么、为什么放行")
+        assert entry.evaluate("el => el === el.parentElement.lastElementChild")
+        entry.get_by_role("button").click()
+        expect(page).to_have_url(base + "/settings?tab=connectors&connector=-sent")
+        expect(main.get_by_role("heading", name="以你的名义发出的记录", exact=True)).to_be_visible()
+        ok("Sent is a secondary page entered from the bottom of Connectors, not a Settings tab")
+        main.locator("input").first.fill("为什么放行")
+        nav.get_by_role("button", name=re.compile("连接器.*以你的名义发出的记录")).click()
+        expect(page).to_have_url(base + "/settings?tab=connectors")
+        expect(entry).to_be_in_viewport()
+        entry.get_by_role("button").click()
+        ok("Settings search finds the existing hint and scrolls to the Connectors entry")
+
+        for old in ("/settings?tab=sent", "/settings/sent"):
+            page.goto(base + old)
+            expect(page).to_have_url(base + "/settings?tab=connectors&connector=-sent")
+            expect(main.locator("[data-sent]")).to_have_count(50)
+        ok("both legacy URL forms redirect to the secondary page")
 
         rows = main.locator("[data-sent]")
         expect(rows).to_have_count(50)
@@ -210,11 +222,13 @@ def phone(browser, base):
         login(page, base)
         page.goto(f"{base}/settings")
         nav = main.get_by_role("navigation", name="设置分类")
-        entry = nav.get_by_role("button", name=re.compile("以你的名义发出"))
+        expect(nav.get_by_role("button", name=re.compile("以你的名义发出"))).to_have_count(0)
+        nav.get_by_role("button", name=re.compile("^连接器")).click()
+        entry = main.locator('[data-settings-group="sent"]')
         expect(entry).to_contain_text("以你的名义发出过什么、为什么放行")
-        entry.click()
-        expect(page).to_have_url(base + "/settings?tab=sent")
-        expect(main.get_by_role("heading", name="以你的名义发出")).to_be_visible()
+        entry.get_by_role("button").click()
+        expect(page).to_have_url(base + "/settings?tab=connectors&connector=-sent")
+        expect(main.get_by_role("heading", name="以你的名义发出的记录", exact=True)).to_be_visible()
         rows = main.locator("[data-sent]")
         expect(rows).to_have_count(50)
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "the page scrolls sideways"
@@ -226,10 +240,13 @@ def phone(browser, base):
         expect(dialog).to_be_visible()
         assert abs(dialog.bounding_box()["width"] - PHONE["width"]) < 1  # a sheet over the whole width
         page.keyboard.press("Escape")
+        main.get_by_role("button", name="连接器", exact=True).click()
+        expect(page).to_have_url(base + "/settings?tab=connectors")
+        expect(main.locator('[data-settings-group="sent"]')).to_be_visible()
         main.get_by_role("button", name="返回设置").click()
         expect(page).to_have_url(base + "/settings")
         assert not errors, errors
-        ok("phone width: the list has the entry with its hint, the page fits, the details are a sheet, Back returns to the list")
+        ok("phone width: the nested entry has its hint, the page fits, details are a sheet, and Back returns through Connectors to Settings")
     finally:
         context.close()
 
@@ -253,10 +270,9 @@ def shots(browser, base, out, inter):
                 main = page.locator("main")
                 expect(main.locator("[data-sent]")).to_have_count(50)
                 expect(main.get_by_role("button", name="Load earlier")).to_be_visible()
-                if kind == "phone":
-                    expect(page.get_by_role("heading", name="Sent as you")).to_be_visible()
-                else:
-                    expect(main.get_by_role("button", name="Sent as you", exact=True)).to_have_attribute("aria-current", "page")
+                expect(page.get_by_role("heading", name="Records sent as you", exact=True)).to_be_visible()
+                if kind == "wide":
+                    expect(main.get_by_role("navigation", name="Settings categories").get_by_role("button", name="Connectors", exact=True)).to_have_attribute("aria-current", "page")
                 page.evaluate("document.fonts.ready")
                 page.wait_for_timeout(500)
                 files[kind] = os.path.join(out, f"{kind}-{theme}.png")

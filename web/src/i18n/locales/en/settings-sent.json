@@ -1,4 +1,6 @@
 {
+  "entry_label": "Records sent as you",
+  "hint": "What Persona sent in your name, and why it was allowed",
   "intro": "What Persona sent in your name through your connectors, newest first. Select a row for the full text.",
   "filter_label": "Filter by connector",
   "all": "All",

@@ -533,4 +533,3 @@ func TestReassignedAbortedAgentSettledDoesNotCompleteTask(t *testing.T) {
 	// Now the task SHOULD complete properly by the real agent!
 	waitFor(t, "task completion by active agent", func() bool { return todoNow(s, todo.ID).DoneAt != nil })
 }
-

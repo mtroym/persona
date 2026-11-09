@@ -591,3 +591,19 @@ export function piWebOf(argv = process.argv, env = process.env) {
   if (host === '0.0.0.0' || host === '::') host = '127.0.0.1'
   return { port, host, password: env.PI_WEB_PASSWORD || undefined }
 }
+
+/**
+ * The herdr pane this process runs in, as the node writes it: HERDR_PANE_ID, with its named session in front
+ * (`@<session>:<pane>`) when herdr runs it in one other than the default server — HERDR_SESSION, else the session
+ * directory of HERDR_SOCKET_PATH (`…/sessions/<name>/herdr.sock`). undefined outside herdr.
+ */
+export function herdrPaneOf(env = process.env) {
+  const pane = env.HERDR_PANE_ID
+  if (!pane) return undefined
+  let session = env.HERDR_SESSION || ''
+  if (!session) { // as the node reads it (herdr.SocketSession): only a name that can stand in an id
+    const m = /[/\\]sessions[/\\]([^/\\]+)[/\\]herdr\.sock$/.exec(env.HERDR_SOCKET_PATH || '')
+    session = m && /^[A-Za-z0-9._-]{1,128}$/.test(m[1]) && m[1] !== '.' && m[1] !== '..' ? m[1] : ''
+  }
+  return session && session !== 'default' ? `@${session}:${pane}` : pane
+}

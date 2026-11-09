@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/nwverse/persona/server/internal/compat"
 	"github.com/nwverse/persona/server/internal/identity"
@@ -68,12 +69,24 @@ func DataDirSession(home, dir string) string {
 }
 
 // env is the environment a herdr command of this client runs with: the node's own, naming the session when the client
-// talks to one (the CLI would otherwise find the default server). nil: inherit.
+// talks to one (the CLI would otherwise find the default server), and its socket in place of one the node's
+// environment may name (a node started in another session's pane has that one's). nil: inherit.
 func (c *Client) env() []string {
 	if c.Session == "" {
 		return nil
 	}
-	return append(os.Environ(), "HERDR_SESSION="+c.Session)
+	env := os.Environ()
+	out := make([]string, 0, len(env)+2)
+	for _, kv := range env {
+		if name, _, _ := strings.Cut(kv, "="); name != "HERDR_SESSION" && name != "HERDR_SOCKET_PATH" {
+			out = append(out, kv)
+		}
+	}
+	out = append(out, "HERDR_SESSION="+c.Session)
+	if c.Socket != "" {
+		out = append(out, "HERDR_SOCKET_PATH="+c.Socket)
+	}
+	return out
 }
 
 // command is exec.Command for a herdr command of this client.

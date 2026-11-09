@@ -19,9 +19,12 @@ vi.mock("./settings/TranslationSettings", () => ({ TranslationSettings: () => <d
 vi.mock("./settings/AssistantSettings", () => ({ AssistantSettings: () => <div data-page="persona" /> }));
 vi.mock("./settings/SidebarPages", () => ({ SidebarPagesGroup: () => <div data-page="sidebar-pages" /> }));
 vi.mock("../lib/pwa", async (original) => ({ ...(await original<typeof import("../lib/pwa")>()), useInstall: () => "installed" }));
-vi.mock("../lib/api", async (original) => ({ ...(await original<typeof import("../lib/api")>()), api: () => Promise.resolve({}) }));
+vi.mock("../lib/api", async (original) => ({ ...(await original<typeof import("../lib/api")>()), api: () => Promise.resolve({ accounts: [] }) }));
 vi.mock("./settings/AgentSettings", () => ({ AgentSettings: ({ agent }: { agent: string }) => <div data-page="agent" data-agent={agent} /> }));
 vi.mock("./settings/Extensions", () => ({ Extensions: ({ open }: { open: string | null }) => <div data-page="extensions" data-open={open} /> }));
+vi.mock("./settings/FeishuBot", () => ({ FeishuBot: () => null }));
+vi.mock("./settings/HubConnector", () => ({ ConnectorList: () => <div data-page="connector-list" />, ConnectorDetail: () => <div data-page="connector-detail" /> }));
+vi.mock("./settings/SentSettings", () => ({ SentSettings: () => <div data-page="sent" /> }));
 
 import { t } from "../i18n";
 import { Settings } from "./Settings";
@@ -143,6 +146,41 @@ describe("Settings category navigation", () => {
     });
     expect(host.querySelector("nav")).not.toBeNull();
     expect(host.querySelector("h1")?.textContent).toBe(t("settings.title"));
+  });
+
+  it.each([false, true])("opens Sent from the Connectors bottom row and returns to Connectors (phone: %s)", async (phone) => {
+    viewport.phone = phone;
+    await mount("/settings?tab=connectors");
+    expect(nav()?.textContent ?? "").not.toContain(t("settings-sent.entry_label"));
+    const entry = host.querySelector('[data-settings-group="sent"]')!;
+    expect(entry.parentElement?.lastElementChild).toBe(entry);
+    expect(entry.textContent).toContain(t("settings-sent.hint"));
+    await act(async () => entry.querySelector("button")!.click());
+    expect(location.search).toBe("?tab=connectors&connector=-sent");
+    expect(host.querySelector('[data-page="sent"]')).not.toBeNull();
+    expect(host.querySelector('[data-page="connector-detail"]')).toBeNull();
+    expect(host.querySelector('[data-settings-group="sent"]')).toBeNull();
+    const back = [...host.querySelectorAll<HTMLButtonElement>("button")].find(b => b.textContent === t("settings-hubconnector.back"))!;
+    await act(async () => back.click());
+    expect(location.search).toBe("?tab=connectors");
+    expect(host.querySelector('[data-settings-group="sent"]')).not.toBeNull();
+  });
+
+  it.each(["/settings?tab=sent", "/settings/sent", "/settings/sent/"])("redirects %s to the secondary Sent page", async (url) => {
+    await mount(url);
+    expect(location.pathname + location.search).toBe("/settings?tab=connectors&connector=-sent");
+    expect(host.querySelector('[data-page="sent"]')).not.toBeNull();
+    expect(category(t("settings-nav.tab_connectors")).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("normalizes a legacy Sent URL reached by browser history while Settings stays mounted", async () => {
+    await mount("/settings?tab=connectors");
+    await act(async () => {
+      history.replaceState(null, "", "/settings/sent");
+      dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(location.pathname + location.search).toBe("/settings?tab=connectors&connector=-sent");
+    expect(host.querySelector('[data-page="sent"]')).not.toBeNull();
   });
 
   it("returns to the phone list from a shared detail URL without navigating away", async () => {

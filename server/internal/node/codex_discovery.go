@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nwverse/persona/server/internal/herdr"
 	"github.com/nwverse/persona/server/internal/lazyre"
 )
 
@@ -18,6 +19,9 @@ type codexProcess struct {
 	pid            int
 	home, endpoint string
 	pane           string
+	// herdrSession is the herdr session pane is in ("" the default server; herdr.EnvSession): the registry writes the
+	// pane as the herdr host does (node herdrPaneIn).
+	herdrSession string
 }
 
 var codexHomePS = lazyre.New(`(?:^|\s)CODEX_HOME=(.*?)(?:\s+[A-Za-z_][A-Za-z_0-9]*=|$)`)
@@ -40,10 +44,16 @@ func codexProcessArgs(pid int, args []string, env string) (codexProcess, bool) {
 	if at >= 1 {
 		p.endpoint = "stdio://"
 	}
+	herdrEnv := map[string]string{}
 	if strings.ContainsRune(env, '\x00') {
 		for _, v := range strings.Split(env, "\x00") {
 			if strings.HasPrefix(v, "HERDR_PANE_ID=") {
 				p.pane = strings.TrimPrefix(v, "HERDR_PANE_ID=")
+			}
+			for _, name := range []string{herdrSessionEnv, herdrSocketEnv} {
+				if value, ok := strings.CutPrefix(v, name+"="); ok {
+					herdrEnv[name] = value
+				}
 			}
 			if strings.HasPrefix(v, "CODEX_HOME=") {
 				p.home = strings.TrimPrefix(v, "CODEX_HOME=")
@@ -56,6 +66,14 @@ func codexProcessArgs(pid int, args []string, env string) (codexProcess, bool) {
 		if m := envVarRe("HERDR_PANE_ID").FindStringSubmatch(env); m != nil {
 			p.pane = m[1]
 		}
+		for _, name := range []string{herdrSessionEnv, herdrSocketEnv} {
+			if m := envVarRe(name).FindStringSubmatch(env); m != nil {
+				herdrEnv[name] = m[1]
+			}
+		}
+	}
+	if p.pane != "" {
+		p.herdrSession = herdr.EnvSession(func(name string) string { return herdrEnv[name] })
 	}
 	for i := at + 1; i < len(args); i++ {
 		if args[i] == "--listen" && i+1 < len(args) {

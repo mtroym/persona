@@ -310,6 +310,34 @@ func TestRenameSpaceTellsTheAssistant(t *testing.T) {
 	})
 }
 
+// A space of a named herdr session shows its session in front of its name (#2196): the node says the name it shows
+// after a rename, and the todo follows that name, not the one typed.
+func TestRenameSpaceFollowsTheNameTheNodeShows(t *testing.T) {
+	h := newTestHub(t)
+	m := capturingNode(t, h, "macbook", func(method string, _ json.RawMessage) any {
+		if method == "space.rename" {
+			return map[string]any{"ok": true, "name": "build · new_name"}
+		}
+		return map[string]any{"ok": true}
+	})
+	m.mu.Lock()
+	m.sessions = []proto.Session{{MachineID: "macbook", SessionID: "s1", Title: "Agent 1", SpaceID: "@build:w4", SpaceName: "build · app", Status: proto.StatusWorking}}
+	m.mu.Unlock()
+	connectAssistant(t, h)
+	todo := plainTodo(t, h, "Rename Named Session Space")
+	if w := hubCall(h, "PUT", "/api/v1/todos/"+todo.ID+"/spaces/macbook/build%20%C2%B7%20app", ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"linked":1`) {
+		t.Fatalf("PUT space: %d %s", w.Code, w.Body)
+	}
+	w := hubCall(h, "POST", "/api/v1/machines/macbook/spaces/@build:w4/rename", `{"name":"new_name"}`)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"name":"build · new_name"`) {
+		t.Fatalf("rename: %d %s", w.Code, w.Body)
+	}
+	waitFor(t, "the todo to follow", func() bool {
+		got := todoNow(h, todo.ID)
+		return len(got.Spaces) == 1 && got.Spaces[0].Space == "build · new_name"
+	})
+}
+
 // closingTag is any closing context tag (either name, #3182), as the apps match it.
 var closingTag = regexp.MustCompile(`(?i)<\s*/\s*persona-context\s*>`)
 

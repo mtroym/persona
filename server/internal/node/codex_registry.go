@@ -259,7 +259,7 @@ func (n *Node) discoverCodex() {
 			continue
 		}
 		if p.pane != "" {
-			byPane[p.pane] = home
+			byPane[n.herdrPaneIn(p.pane, p.herdrSession)] = home
 		}
 		r.mu.Lock()
 		if !slices.Contains(r.config.Homes, home) {

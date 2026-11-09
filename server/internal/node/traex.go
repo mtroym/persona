@@ -140,6 +140,10 @@ func (n *Node) paneOfPID(pid int) string {
 		}
 		if m := re.(*regexp.Regexp).FindSubmatch(env); m != nil {
 			p = host.PaneRef{Kind: h.Kind(), ID: string(m[1])}.String()
+			if h.Kind() == host.Herdr { // which server's pane: a named session's is qualified (#2196)
+				picked := pickedEnv(string(env))
+				p = n.envPane(func(name string) string { return picked[name] })
+			}
 			break
 		}
 	}

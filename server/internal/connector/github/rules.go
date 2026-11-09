@@ -311,7 +311,8 @@ func (c *Connector) followUpCI(ctx context.Context) bool {
 			case check.over != "":
 				t.Done, t.Why, moved = connector.DoneRead, check.over, true
 			case check.failed.at.After(t.At):
-				t.At, t.Last = check.failed.at, check.failed.at.UTC().Format(time.RFC3339)
+				// News the user has not seen, even if they read the item's notification: GitHub sent none of this run.
+				t.At, t.Last, t.Read = check.failed.at, check.failed.at.UTC().Format(time.RFC3339), false
 				t.Preview = check.failed.workflow + " workflow run failed for " + m.branch + " branch" // as GitHub titles its notification
 				t.Context = ciContext(m.repo, m.branch, m.pr, t.Preview)
 				moved = true

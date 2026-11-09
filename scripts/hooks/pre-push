@@ -2,23 +2,33 @@
 # Refuse a push whose commits would bring private values (scripts/privacy_check.py --range): what each pushed branch
 # adds on top of the tracked default branch, with the commit messages. Install: git config core.hooksPath scripts/hooks
 # Only this machine's values are known (its config, private-words.txt, CLAUDE.local.md): see docs/operations/testing.md "Privacy scan".
+# The base is the first of origin/HEAD, origin/main, origin/master and the remote's tip that shares history with the
+# pushed commit (a clone older than a history rewrite can keep origin/HEAD on the old one). A branch that shares none
+# with them (an orphan, such as a screenshot branch) is scanned whole: every file and every commit message.
 set -u
 root="$(git rev-parse --show-toplevel)"
-base="$(git rev-parse --verify -q refs/remotes/origin/HEAD ||
-  git rev-parse --verify -q refs/remotes/origin/main ||
-  git rev-parse --verify -q refs/remotes/origin/master || true)"
 zero="0000000000000000000000000000000000000000"
-status=0
+refused=""
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ "$local_sha" = "$zero" ] && continue # a deletion
-  from="$base"
-  [ -n "$from" ] || from="$remote_sha"
-  if [ -z "$from" ] || [ "$from" = "$zero" ]; then
-    echo "pre-push: cannot find a scan base for a new branch; fetch origin and set origin/HEAD" >&2
-    status=1
+  from=""
+  unrelated=""
+  for ref in refs/remotes/origin/HEAD refs/remotes/origin/main refs/remotes/origin/master "$remote_sha"; do
+    sha="$(git rev-parse --verify -q "$ref^{commit}")" || continue
+    if git merge-base "$sha" "$local_sha" >/dev/null 2>&1; then
+      from="$sha"
+      break
+    fi
+    unrelated="${unrelated:-$sha}"
+  done
+  from="${from:-$unrelated}" # no shared history: privacy_check then scans all of local_sha
+  if [ -z "$from" ]; then
+    echo "pre-push: cannot find a scan base for $local_ref; fetch origin and set origin/HEAD" >&2
+    refused="$refused $remote_ref"
     continue
   fi
-  python3 "$root/scripts/privacy_check.py" --range "$from..$local_sha" >&2 || status=1
+  python3 "$root/scripts/privacy_check.py" --range "$from..$local_sha" </dev/null >&2 || refused="$refused $remote_ref"
 done
-[ $status -eq 0 ] || echo "pre-push: refused (${remote_ref:-push}); fix the hits above, or see docs/operations/testing.md「隐私扫描」" >&2
-exit $status
+[ -z "$refused" ] && exit 0
+echo "pre-push: refused$refused; fix what is reported above, or see docs/operations/testing.md, \"Privacy scan\"" >&2
+exit 1

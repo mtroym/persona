@@ -110,7 +110,9 @@ func (b *inboxBook) applyConnector(id, name string, things []connector.InboxThin
 				b.noteTriaged(open)
 				changed = append(changed, open)
 			}
-			if t.Read && !open.Read {
+			// Read elsewhere counts only for the item's newest move: an older thing read (a connector restarted after it
+			// moved the item to a later step it was not notified of) says nothing of whether that step was seen.
+			if t.Read && !open.Read && (t.At.IsZero() || !t.At.Before(open.UpdatedAt)) {
 				b.roundWrite(open)
 				open.Read = true
 				if open.Tier != "" && open.Tier != TierAction { // untriaged ones are settled by triage

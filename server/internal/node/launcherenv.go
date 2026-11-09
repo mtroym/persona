@@ -404,4 +404,3 @@ func launcherDefaultEffort(l proto.ManagedLauncher) string {
 	pm, _ := providerModel(l, l.Model)
 	return cmp.Or(l.Effort, pm.DefaultEffort)
 }
-

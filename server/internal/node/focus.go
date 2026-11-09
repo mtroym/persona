@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nwverse/persona/server/internal/herdr"
 	"github.com/nwverse/persona/server/internal/host"
 	"github.com/nwverse/persona/server/internal/lazyre"
 )
@@ -254,6 +255,20 @@ func (n *Node) focusSession(client, id string) {
 	}
 	f, ok := h.(host.Focuser)
 	if !ok {
+		return
+	}
+	if fc := n.fullOf(client); fc != nil && ref.Kind == host.Herdr {
+		// A view's client shows one herdr server (its session's): a pane of another cannot be shown there, and what
+		// the user types would go to a pane they do not see. The view ends; opening it again attaches to the pane's.
+		if session, _ := herdr.SplitID(ref.ID); session != fc.session {
+			go fc.stop("this pane is in another herdr session: open the full view again to show it", true)
+			return
+		}
+	}
+	// Focus comes back from the own herdr server only (herdrHost.WatchFocus): a pane of a named session (#2196) gets
+	// no echo to mark.
+	if session, _ := herdr.SplitID(ref.ID); session != "" && ref.Kind == host.Herdr {
+		_ = f.FocusPane(ctx, ref)
 		return
 	}
 	n.focus.mu.Lock()

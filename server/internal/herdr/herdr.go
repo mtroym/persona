@@ -90,19 +90,15 @@ func SocketPath() string {
 	if p := os.Getenv("HERDR_SOCKET_PATH"); p != "" {
 		return p
 	}
-	var d string
+	return sessionSocket(Session())
+}
+
+// configDir is herdr's config directory: $XDG_CONFIG_HOME/herdr, else the platform's ("" when there is no home).
+func configDir() string {
 	if x := os.Getenv("XDG_CONFIG_HOME"); x != "" {
-		d = filepath.Join(x, "herdr")
-	} else {
-		d = platformConfigDir()
+		return filepath.Join(x, "herdr")
 	}
-	if d == "" {
-		return ""
-	}
-	if s := Session(); s != "" {
-		d = filepath.Join(d, "sessions", s)
-	}
-	return filepath.Join(d, "herdr.sock")
+	return platformConfigDir()
 }
 
 // Dial connects to herdr's API socket at path (a unix socket; on Windows the named pipe for path): for callers that

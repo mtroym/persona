@@ -81,7 +81,7 @@ node uses the "pane → session" table learned from hooks (`bindPane`) to find t
 Delivery goes through APNs (direct or via the push relay) and the persistent connection event of `ws_notify` (`kind: "alert"`). If neither channel selects a recipient, the hub returns `sent: false`: `no_device` when no device has a usable push route and no capable connection is online; `filtered` when reachable recipients exist but all are excluded by "Needs You", manager notification switches, "Phone Muted", or the open-desktop rule. A selection on either channel is enough for `sent: true`; asynchronous APNs or relay failures do not change that reply.
 
 - `--error`: `interruption-level: time-sensitive`, and the title gets a "⚠️ " prefix; the default is `active`.
-- `--silent`: no `sound` in `aps`. `notifyRequest` gained an optional `silent` field for this, which the HTTP API also accepts.
+- `--silent`: no `sound` in `aps`. `notifyRequest` gained an optional `silent` field for this, which the HTTP API also accepts. Through the push relay the phone takes the sound from the sealed `aps`, so it is quiet there too; only the "New message" fallback of a push that can't be opened rings (`../operations/push-relay.md`).
 - The title is at most 120 characters, the body at most 1000; anything longer is truncated in node, without an error.
   The push itself is bounded in bytes (3500 encoded), so the hub then cuts the body further, by characters with a trailing "…", until it fits (`fitBody`): 1000 emoji or escaped `<` `>` `&` are still delivered. Only a title too large on its own is refused (`notification is too large`). Extensions' `POST /api/v1/notify` is not cut: it still gets a 400 over the limit.
 

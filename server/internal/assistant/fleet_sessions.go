@@ -222,7 +222,7 @@ func (s *Service) decorateInventory(machine string, list []proto.Session, comple
 			}
 		}
 	}
-	seen := make(map[string]time.Time, len(list))
+	seen := make(map[string]time.Time, min(len(list), len(s.fleet.seen)))
 	for _, sess := range list {
 		if t, ok := s.fleet.seen[[2]string{machine, sess.SessionID}]; ok {
 			seen[sess.SessionID] = t

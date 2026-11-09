@@ -286,7 +286,7 @@ func (n *Node) claudeInPane(c claudeProc) bool {
 	if paneEnvOfPID == nil {
 		return false
 	}
-	refs := enginePaneRefs(paneEnvOfPID(c.pid))
+	refs := n.enginePaneRefs(paneEnvOfPID(c.pid))
 	if len(refs) == 0 {
 		return false
 	}
@@ -331,15 +331,15 @@ var outsidePaneGrace = 5 * time.Second
 const paneClaudeForget = time.Minute
 
 // enginePaneRefs are the panes a process's engine pane variables (enginePaneEnvs) name, as the hosts write PaneIDs.
-func enginePaneRefs(env map[string]string) []string {
+func (n *Node) enginePaneRefs(env map[string]string) []string {
 	var out []string
 	add := func(kind, id string) {
 		if id != "" {
 			out = append(out, host.PaneRef{Kind: kind, ID: id}.String())
 		}
 	}
-	if p := env[herdrPaneEnv]; p != "" {
-		out = append(out, p) // herdr's pane ids are stored as they are
+	if p := n.envPane(func(name string) string { return env[name] }); p != "" {
+		out = append(out, p) // herdr's pane ids are stored as they are, a named session's qualified (#2196)
 	}
 	add(host.HerdrCore, env[herdrCorePaneEnv])
 	add(host.Orca, env[orcaPaneEnv])
@@ -349,4 +349,6 @@ func enginePaneRefs(env map[string]string) []string {
 }
 
 // enginePaneEnvs are the variables Persona's engines set in their panes' processes.
-var enginePaneEnvs = []string{herdrPaneEnv, herdrCorePaneEnv, orcaPaneEnv, orcaLegacyPaneEnv, botmuxPaneEnv}
+// herdrSessionEnv and herdrSocketEnv come along to tell which herdr server's pane HERDR_PANE_ID is.
+var enginePaneEnvs = []string{herdrPaneEnv, herdrSessionEnv, herdrSocketEnv, herdrCorePaneEnv, orcaPaneEnv, orcaLegacyPaneEnv,
+	botmuxPaneEnv}

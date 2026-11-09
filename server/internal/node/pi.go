@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/nwverse/persona/server/internal/herdr"
 	"github.com/nwverse/persona/server/internal/host"
 	"github.com/nwverse/persona/server/internal/lazyre"
 	"github.com/nwverse/persona/server/internal/proto"
@@ -27,8 +28,12 @@ var piResumeWait = 30 * time.Second
 
 var paneIDRe = lazyre.New(`^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$`)
 
-// validPane: a pane id a runtime may name (herdr's "w1:p1"), nothing that could mean something else.
-func validPane(p string) bool { return paneIDRe.MatchString(p) }
+// validPane: a pane id a runtime may name (herdr's "w1:p1", a named session's "@<session>:w1:p1": herdr.QualifyID),
+// nothing that could mean something else.
+func validPane(p string) bool {
+	_, bare := herdr.SplitID(p)
+	return paneIDRe.MatchString(bare)
+}
 
 // piSession is the session the pi in pane a runs: what herdr's pi integration reported (its session file), else what
 // the extension in it said (the pane in its list), else the pane a resume of ours started it in.
@@ -36,7 +41,7 @@ func (n *Node) piSession(a host.Agent) string {
 	if id := a.SessionID(); id != "" && runtimeIDRe.MatchString(id) {
 		return id
 	}
-	if id := n.runtimes.sessionInPane(a.PaneID); id != "" {
+	if id := n.runtimes.sessionInPane(a.PaneID, n.ownPane); id != "" {
 		return id
 	}
 	n.mu.Lock()

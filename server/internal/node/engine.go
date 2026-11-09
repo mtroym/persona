@@ -103,7 +103,7 @@ func engineHostsFor(c proto.EngineChoice, logf func(format string, args ...any))
 					logf("herdr: this node's data directory has its own herdr session (%s), but its environment points at %s: using that, so its Agents belong to whichever node started that server", own, hc.Socket)
 				}
 			}
-			hs = append(hs, &herdrHost{c: hc})
+			hs = append(hs, newHerdrHost(hc, logf))
 		case proto.EngineHerdrCore:
 			cc := herdrcore.New()
 			cc.Log = logf

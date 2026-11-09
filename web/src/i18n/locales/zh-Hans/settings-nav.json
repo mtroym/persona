@@ -25,8 +25,6 @@
   "hint_hub": "hub 更新和扩展下载镜像",
   "tab_managers": "管理者",
   "hint_managers": "各个助手跑在哪、在不在线",
-  "tab_sent": "以你的名义发出",
-  "hint_sent": "以你的名义发出过什么、为什么放行",
   "group_personal": "个人",
   "group_assistant": "助手",
   "group_system": "系统"

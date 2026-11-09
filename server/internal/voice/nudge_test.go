@@ -39,13 +39,30 @@ func nudgesTo(up *fakeUpstream) int {
 	return up.count(func(f map[string]any) bool { return said(f) && (content(f) == user || content(f) == result) })
 }
 
-// noNudge waits several times nudgeAfter and fails if the service was nudged.
+// watchNudges observes upstream frames for several nudge periods, failing as soon
+// as the count changes. The full window is needed to prove the absence of a nudge.
+func watchNudges(t *testing.T, up *fakeUpstream, want int, what string) {
+	t.Helper()
+	window := time.NewTimer(3 * nudgeAfter)
+	defer window.Stop()
+	for {
+		if n := nudgesTo(up); n != want {
+			t.Fatalf("%s: nudged %d times, want %d", what, n, want)
+		}
+		select {
+		case <-up.frames:
+		case <-window.C:
+			if n := nudgesTo(up); n != want {
+				t.Fatalf("%s: nudged %d times, want %d", what, n, want)
+			}
+			return
+		}
+	}
+}
+
 func noNudge(t *testing.T, up *fakeUpstream, what string) {
 	t.Helper()
-	time.Sleep(3 * nudgeAfter)
-	if n := nudgesTo(up); n != 0 {
-		t.Fatalf("%s: nudged %d times", what, n)
-	}
+	watchNudges(t, up, 0, what)
 }
 
 // silentUpstream is a live-dialect service whose model only starts its sessions: it never says or does anything.
@@ -74,7 +91,7 @@ func TestNudgeAfterATypedLine(t *testing.T) {
 	if took := time.Since(began); took < nudgeAfter {
 		t.Fatalf("nudged %v after the line, before nudgeAfter", took)
 	}
-	time.Sleep(3 * nudgeAfter)
+	watchNudges(t, up, 1, "one answer owed")
 	if n := nudgesTo(up); n != 1 {
 		t.Fatalf("nudged %d times for one answer owed", n)
 	}
@@ -128,10 +145,9 @@ func TestNoNudgeWhenTheModelAnswers(t *testing.T) {
 						return // a nudge: the test fails on it
 					}
 					k := int(n.Add(1))
-					go func() {
-						time.Sleep(nudgeAfter / 3) // a while, but in time
-						tc.answer(u, c, k)
-					}()
+					// Receipt of this frame establishes that the line or result was
+					// handed over; answer it before the nudge deadline.
+					tc.answer(u, c, k)
 				}
 			})
 			hub := newFakeHub(t)
@@ -163,30 +179,37 @@ func TestNudgeAfterTheUsersCaption(t *testing.T) {
 			name = "answered before the caption"
 		}
 		t.Run(name, func(t *testing.T) {
-			var heard atomic.Bool
+			const inputFrames = 10
+			var heard atomic.Int32
+			voiceDone := make(chan *websocket.Conn, 1)
 			up := newFakeUpstream(t, func(u *fakeUpstream, c *websocket.Conn, f map[string]any) {
 				switch f["type"] {
 				case "session.start":
 					u.send(c, map[string]any{"type": "session.started", "session": map[string]any{}})
 				case "session.input_audio.append":
-					if heard.Swap(true) {
-						return
+					// speak sends ten 20 ms frames. Receiving the last one proves
+					// that the user's whole line reached the model.
+					if heard.Add(1) == inputFrames {
+						voiceDone <- c
 					}
-					go func() { // the user's voice came: the model answers it, or not, and the caption comes late
-						time.Sleep(300 * time.Millisecond)
-						if answered {
-							u.send(c, map[string]any{"type": "session.output_audio.delta", "delta": b64(make([]byte, 3200))})
-							time.Sleep(100 * time.Millisecond)
-						}
-						u.send(c, map[string]any{"type": "session.input_transcript.delta", "delta": "现在几点了"})
-					}()
 				}
 			})
 			pl := testPlugin(t, liveProvider(up), newFakeHub(t).server(t))
 			logs := captureLog(t, pl)
 			a := dialApp(t, pl, map[string]any{"type": "start"})
 			a.until(ofType("ready"))
-			a.speak(200*time.Millisecond, true)
+			a.speak(inputFrames*20*time.Millisecond, true)
+			var conn *websocket.Conn
+			select {
+			case conn = <-voiceDone:
+			case <-time.After(5 * time.Second):
+				t.Fatal("the model did not receive the user's whole line")
+			}
+			if answered {
+				up.send(conn, map[string]any{"type": "session.output_audio.delta", "delta": b64(make([]byte, 3200))})
+				a.heardAudio() // the model's answer reached the app before the late caption
+			}
+			up.send(conn, map[string]any{"type": "session.input_transcript.delta", "delta": "现在几点了"})
 			a.until(finalLine("user", "现在几点了"))
 			if answered {
 				noNudge(t, up, name)
