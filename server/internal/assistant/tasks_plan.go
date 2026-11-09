@@ -75,6 +75,7 @@ func (s *Service) toolTaskPlan(ctx context.Context, sessionID string, args json.
 		}
 		s.healthyPlace(ctx, &preview) // health follows the resolved launcher
 		t.Machine, t.Cwd, t.Why = preview.Machine, preview.Cwd, preview.Why
+		t.Reroute = preview.Reroute
 	}
 	if err := s.ensureTodosLoaded(ctx); err != nil {
 		return "", fmt.Errorf("todos are unavailable: %v", err)

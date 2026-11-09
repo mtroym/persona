@@ -22,6 +22,17 @@ import (
 // task, an answered question, a receipt, a message sent straight to a task — is the conversation's feed, kept apart
 // from Claude's transcript.
 
+// PlanReroute records that a flexible task was moved off its requested machine because its launcher failed a health
+// check, naming both machines by their display names and the health check's reason, so a card/receipt can show where
+// the work was meant to run and where it landed instead (#2271).
+type PlanReroute struct {
+	// FromMachine is the display name of the machine the task was first placed on; it stays the original across
+	// repeated moves. ToMachine is where it runs now; Reason is healthDetour's note (failure kind and clipped error).
+	FromMachine string `json:"from_machine"`
+	ToMachine   string `json:"to_machine"`
+	Reason      string `json:"reason,omitempty"`
+}
+
 // PlanTask is one task of a plan, as the assistant proposed it and the user may have edited it.
 type PlanTask struct {
 	Title   string `json:"title"`
@@ -43,6 +54,9 @@ type PlanTask struct {
 	// assistant.start_requested_tasks on it starts without the card's "Start".
 	UserRequested bool   `json:"user_requested,omitempty"`
 	Why           string `json:"why,omitempty"`
+	// Reroute is set once a flexible task has been moved to another machine; nil while it runs where it was asked.
+	// Repeated moves keep the original FromMachine and refresh ToMachine and Reason (#2271).
+	Reroute *PlanReroute `json:"reroute,omitempty"`
 	// DoneWhen: what done means, criteria the supervisor checks before it accepts the work; ExpectMinutes: how long it
 	// should take (#3124, supervise.go). Both optional; the agent is told the criteria with its prompt.
 	DoneWhen      []string `json:"done_when,omitempty"`
