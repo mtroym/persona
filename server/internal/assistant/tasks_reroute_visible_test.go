@@ -221,3 +221,50 @@ func TestDoneReceiptHasNoRerouteWhenHealthy(t *testing.T) {
 		t.Fatalf("a healthy task's receipt must carry no reroute, got %+v", rb.Reroute)
 	}
 }
+
+// Reroute is hub-owned: a reroute a model passes in task_plan args must be discarded, not persisted. On a healthy
+// machine there is no real detour, so the saved task carries none. Without the reset the model could forge one and
+// its presence would also suppress seeding of the true original on a later detour (#2271).
+func TestModelSuppliedRerouteInPlanArgsIsDropped(t *testing.T) {
+	s, _ := rerouteHub(t)
+	res, err := s.toolTaskPlan(context.Background(), "conv9", json.RawMessage(
+		`{"tasks":[{"title":"修 CI","prompt":"修 CI","machine":"box","cwd":"~/code/app","launcher":"work",
+		"readonly":false,"user_requested":false,"machine_policy":"flexible","why":"代码在那",
+		"reroute":{"from_machine":"Lab Mac L4","to_machine":"Build Box","reason":"forged"}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := regexp.MustCompile(`plan_[0-9a-f]+`).FindString(res)
+	p, err := s.loadPlan(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Tasks[0].Reroute != nil {
+		t.Fatalf("a model-supplied reroute must be dropped on a healthy machine, got %+v", p.Tasks[0].Reroute)
+	}
+}
+
+// A user's explicit machine edit supersedes a plan-time health detour: the stale reroute is cleared (and the task
+// becomes fixed), so the receipt names the machine it actually runs on. An edit that keeps the same machine leaves
+// the detour record alone (#2271).
+func TestManualMachineEditClearsAStaleReroute(t *testing.T) {
+	detoured := func() *PlanTask {
+		return &PlanTask{Title: "t", Machine: "box", MachinePolicy: machineFlexible, Cwd: "~/code/app",
+			Reroute: &PlanReroute{FromMachine: "Lab Mac L4", ToMachine: "Build Box", Reason: "not_in_terminal: down"}}
+	}
+
+	retargeted := detoured()
+	applyPlanEdit(retargeted, PlanTask{Machine: "server"})
+	if retargeted.Machine != "server" || retargeted.MachinePolicy != machineFixed {
+		t.Fatalf("the manual retarget was not applied: %+v", retargeted)
+	}
+	if retargeted.Reroute != nil {
+		t.Fatalf("a manual retarget must clear the stale reroute, got %+v", retargeted.Reroute)
+	}
+
+	sameMachine := detoured()
+	applyPlanEdit(sameMachine, PlanTask{Machine: "box"})
+	if sameMachine.Reroute == nil {
+		t.Fatal("an edit that keeps the machine must preserve the detour record")
+	}
+}
