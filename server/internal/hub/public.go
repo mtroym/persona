@@ -33,6 +33,9 @@ type publicState struct {
 	proxyLog    proxyLog
 	addresses   addressSource
 	endpoints   []Endpoint
+	// endpointsForClients: the same, plus LAN addresses whatever public.advertise_lan says, for the authenticated
+	// /api/v1/endpoints answer (endpoints.go, endpointScope).
+	endpointsForClients []Endpoint
 }
 
 func (h *Hub) initHubID(ctx context.Context) error {

@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -252,6 +253,78 @@ func TestEndpointsAuthenticatedRoute(t *testing.T) {
 		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil || rec.Code != http.StatusOK || response.HubID != h.hubID() || response.Port != 19443 || response.Pin != "test-pin" || !reflect.DeepEqual(response.Endpoints, h.endpointList()) {
 			t.Fatalf("endpoints response: %+v, %v", response, err)
 		}
+	}
+}
+
+// TestLANEndpointsReachAnAuthenticatedClient: public.advertise_lan says whether LAN addresses are published to the
+// world, not whether one of the hub's own paired clients may hear about the network it is already on (#2170). A phone
+// alone at home pairing through a public URL otherwise learns only that URL and keeps going out and back in.
+func TestLANEndpointsReachAnAuthenticatedClient(t *testing.T) {
+	off := false
+	cfg := &Config{Listen: ":18660", PublicURL: "https://hub.example.com"}
+	cfg.Public.AdvertiseLAN = &off
+	addrs := []localAddress{testLocalAddress("lan4"), testLocalAddress("ipv6")}
+	now := time.Now().UTC()
+
+	public := collectEndpointsFor(cfg, 0, addrs, now, scopePublic)
+	for _, e := range public {
+		if e.Kind == "lan" {
+			t.Fatalf("a public answer listed a LAN address with advertise_lan off: %v", e.URL)
+		}
+	}
+	client := collectEndpointsFor(cfg, 0, addrs, now, scopeAuthenticated)
+	var lan, publicURL bool
+	for _, e := range client {
+		switch e.Kind {
+		case "lan":
+			lan = true
+		case "name":
+			publicURL = true
+		}
+	}
+	if !lan {
+		t.Fatal("an authenticated client was not told about the LAN address")
+	}
+	if !publicURL {
+		t.Fatal("making LAN addresses visible dropped the public one")
+	}
+	// advertise_lan still removes them from the public list; the authenticated one is unaffected by it.
+	if got := collectEndpointsFor(cfg, 0, nil, now, scopeAuthenticated); len(got) != 1 || got[0].Kind != "name" {
+		t.Fatalf("authenticated endpoints without local addresses = %v", got)
+	}
+}
+
+// TestEndpointsRouteListsLANForAClient: the same over HTTP, through the real route, so a change to the mounted handler
+// cannot quietly stop using the authenticated list.
+func TestEndpointsRouteListsLANForAClient(t *testing.T) {
+	h := newPublicTestHub(t)
+	off := false
+	h.cfg.Public.AdvertiseLAN = &off
+	h.cfg.Listen = ":18660"
+	h.public.addresses = func() ([]localAddress, error) {
+		return []localAddress{testLocalAddress("lan4")}, nil
+	}
+	if err := h.refreshEndpoints(time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("GET", "/api/v1/endpoints", nil)
+	req.RemoteAddr = "127.0.0.1:1234"
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	h.routes().ServeHTTP(rec, req)
+	var response struct {
+		Endpoints []Endpoint `json:"endpoints"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("endpoints: %d %v", rec.Code, err)
+	}
+	if !slices.ContainsFunc(response.Endpoints, func(e Endpoint) bool { return e.Kind == "lan" }) {
+		t.Fatalf("authenticated endpoints answer has no LAN candidate: %+v", response.Endpoints)
+	}
+	// The pairing QR still does not carry one.
+	lanURL := endpointTestAddress("lan4").String()
+	if slices.ContainsFunc(h.pairCandidates(), func(u string) bool { return strings.Contains(u, lanURL) }) {
+		t.Fatal("pair candidates included a LAN address")
 	}
 }
 

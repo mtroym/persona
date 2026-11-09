@@ -69,6 +69,21 @@ A single binary `personad`, four modes:
   Paseo is the exception: it has no terminal and connects through the runtime protocol (the node runs its bridge itself), yet it is an engine a machine can pick, and both new and resumed sessions are handed to it (`docs/integrations/paseo.md`).
 - **The hub is on an always-on machine**: it is always online and can reach Gmail (verified: imap.gmail.com:993 / smtp.gmail.com:465 reachable directly), and every Mac is relayed through it.
 
+## What carries the data
+
+Every path between an app and a computer goes **through the hub**: the app opens its WebSocket (`/api/v1/ws`) to the hub, the computer holds its Persona Link connection to the hub, and the hub splices the two. There is **no direct phone-to-computer transport** and no way for a phone to address a computer without the hub in between.
+
+Two direct-path facilities exist, and neither covers that leg:
+
+- **tailcat hole punching** (`docs/server/server.md` ("tailcat hole punching"), `server/internal/tunnel`): real NAT traversal, upgrading to `direct` and falling back to a DERP `relay`, but it carries the **hub/manager → node** connection only, because the hub cannot depend on SSH reaching a laptop. The mobile app has no tailcat client.
+- **LAN-first endpoint ranking** (`server/internal/link/link.go`, `kindOf` / `rank`: `lan` → `ipv6` → `name` → `ipv4`): this orders the candidates a **computer** tries for the hub, so Persona Link stops making a round trip through the internet when the hub is on its own network. It says nothing about the app's connection.
+
+So when the phone and a computer are on the same Wi-Fi, the traffic still leaves the LAN, reaches the hub, and comes back in.
+
+**Which addresses a client is told about.** `/api/v1/endpoints` is authenticated, and its answer includes the hub's LAN candidates whether or not `public.advertise_lan` is on: that setting controls what is published to the world, not what one of the hub's own paired clients may hear about the network it is already on (`server/internal/hub/endpoints.go`, `endpointScope`). The pairing QR and `health` stay public and never carry LAN addresses. An app that wants to use them ranks them like `link.go` does — LAN first.
+
+Whether an app-to-computer direct path is in scope is an open question: [#2170](https://github.com/nwverse/persona/issues/2170).
+
 ## The hub is only a communication center
 
 The hub only handles communication: app and other clients ↔ managers, hub ↔ hub (linked hubs), connections (WebSocket, node / connector links), pairing and auth, the admin UI, push delivery, and various relays.
